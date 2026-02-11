@@ -8,6 +8,12 @@
 
 <p align="center">A lightweight macOS menu bar app that monitors your <a href="https://claude.ai">Claude</a> usage limits in real time.<br>See your 5-hour session and 7-day weekly usage at a glance — no browser tab required.</p>
 
+<p align="center">
+  <a href="https://github.com/skendaj/Claudephobia/releases/latest/download/Claudephobia.zip">
+    <img src="https://img.shields.io/badge/Download-Claudephobia.zip-D97757?style=for-the-badge&logo=apple&logoColor=white" alt="Download">
+  </a>
+</p>
+
 ## How It Works
 
 Claudephobia uses your Claude session cookie to read usage data directly from the Claude API. It tracks:
