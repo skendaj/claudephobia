@@ -144,7 +144,8 @@ final class UsageScraper {
             return Date().addingTimeInterval(3600)
         }()
 
-        return RateLimitInfo(percentUsed: max(0, percent), resetsAt: resetsAt)
+        let clamped = percent.isFinite ? max(0, percent) : 0
+        return RateLimitInfo(percentUsed: clamped, resetsAt: resetsAt)
     }
 
     // MARK: - HTTP

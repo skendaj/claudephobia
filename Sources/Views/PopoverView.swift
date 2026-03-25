@@ -23,6 +23,16 @@ struct PopoverView: View {
 
     private var setupView: some View {
         VStack(spacing: 14) {
+            HStack {
+                Spacer()
+                Button(action: { NSApplication.shared.terminate(nil) }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
             AppIconView(size: 48)
 
             Text("Claudephobia")
@@ -373,6 +383,7 @@ struct UsageProgressBar: View {
     var tint: Color = .blue
 
     private var isOverflow: Bool { value > 1.0 }
+    private var safeValue: Double { value.isFinite ? value : 0 }
 
     var body: some View {
         GeometryReader { geo in
@@ -387,7 +398,7 @@ struct UsageProgressBar: View {
                 } else {
                     Capsule()
                         .fill(tint)
-                        .frame(width: max(0, geo.size.width * CGFloat(value)))
+                        .frame(width: max(0, geo.size.width * CGFloat(min(1, safeValue))))
                 }
             }
         }
