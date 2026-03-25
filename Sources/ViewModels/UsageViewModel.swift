@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import AppKit
+import Network
 
 enum ShareAction: Int {
     case shareImage = 0
@@ -53,6 +54,9 @@ final class UsageViewModel: ObservableObject {
     /// True when using Claude faster than sustainable for the current window
     @Published var isPacingWarning: Bool = false
 
+    /// True when Claude's service appears to be down (consecutive server/network failures)
+    @Published var isServiceDown: Bool = false
+
     /// Refresh interval in seconds (60, 300, 600)
     @Published var refreshInterval: Int = 300
 
@@ -73,6 +77,25 @@ final class UsageViewModel: ObservableObject {
     private var apiClient: ClaudeAPIClient?
     private let notificationManager = NotificationManager()
     private var refreshTimer: Timer?
+    private var countdownTimer: Timer?
+    private var networkMonitor: NWPathMonitor?
+    private var wasNetworkUnsatisfied = false
+
+    /// Raw reset dates for live countdown
+    private var sessionResetsAt: Date?
+    private var weeklyResetsAt: Date?
+    private var opusResetsAt: Date?
+    private var sonnetResetsAt: Date?
+    private var oauthAppsResetsAt: Date?
+    private var coworkResetsAt: Date?
+    private var extraUsageResetsAt: Date?
+
+    /// Minimum seconds between fetches (prevents hammering on popover open)
+    private let minFetchInterval: TimeInterval = 30
+
+    /// Consecutive server/network failure count for service-down detection
+    private var consecutiveFailures = 0
+    private let serviceDownThreshold = 3
 
     /// Stores the last fetched raw data for JSON export
     private var lastUsageData: ClaudeUsageData?
@@ -88,6 +111,8 @@ final class UsageViewModel: ObservableObject {
             startAutoRefresh()
             fetchUsage()
         }
+        startCountdownTimer()
+        observeSystemEvents()
     }
 
     // MARK: - Setup
@@ -114,6 +139,8 @@ final class UsageViewModel: ObservableObject {
         KeychainHelper.delete(key: "session_key")
         refreshTimer?.invalidate()
         refreshTimer = nil
+        countdownTimer?.invalidate()
+        countdownTimer = nil
         scraper = nil
         apiClient = nil
         notificationManager.reset()
@@ -127,10 +154,19 @@ final class UsageViewModel: ObservableObject {
         rateLimitTier = nil
         sessionResetDescription = ""
         weeklyResetDescription = ""
+        sessionResetsAt = nil
+        weeklyResetsAt = nil
+        opusResetsAt = nil
+        sonnetResetsAt = nil
+        oauthAppsResetsAt = nil
+        coworkResetsAt = nil
+        extraUsageResetsAt = nil
         lastUpdated = nil
         errorMessage = nil
         lastUsageData = nil
         isPacingWarning = false
+        isServiceDown = false
+        consecutiveFailures = 0
         UserDefaults.standard.set(false, forKey: "claudephobia.setup_complete")
         isSetupComplete = false
     }
@@ -139,6 +175,18 @@ final class UsageViewModel: ObservableObject {
         let client = ClaudeAPIClient(sessionKey: sessionKey)
         _ = try await client.testConnection()
     }
+
+    // MARK: - Debug
+
+//    /// Temporarily fake service-down state for UI testing.
+//    func debugToggleServiceDown() {
+//        isServiceDown.toggle()
+//        if isServiceDown {
+//            errorMessage = "Claude appears to be down. Retrying automatically..."
+//        } else {
+//            errorMessage = nil
+//        }
+//    }
 
     // MARK: - Fetch
 
@@ -149,21 +197,49 @@ final class UsageViewModel: ObservableObject {
 
         Task { @MainActor in
             do {
-                let data = try await scraper.scrape()
+                let data = try await scraper.scrapeWithRetry()
                 lastUsageData = data
                 applyUsageData(data)
                 lastUpdated = Date()
+                consecutiveFailures = 0
+                isServiceDown = false
 
                 if data.fiveHour == nil && data.sevenDay == nil {
                     errorMessage = "Could not read usage data. Session key may be expired."
                 } else {
                     errorMessage = nil
                 }
+
+                // Adaptive polling: increase frequency when usage is high
+                adjustRefreshRate()
+            } catch ClaudeAPIError.rateLimited {
+                errorMessage = ClaudeAPIError.rateLimited.localizedDescription
+                consecutiveFailures += 1
+                updateServiceDownStatus()
+                // Back off for 60s on rate limit
+                rescheduleRefresh(interval: 60)
+            } catch ClaudeAPIError.unauthorized {
+                // Auth errors are not service outages — reset counter
+                consecutiveFailures = 0
+                isServiceDown = false
+                errorMessage = ClaudeAPIError.unauthorized.localizedDescription
             } catch {
-                errorMessage = error.localizedDescription
+                consecutiveFailures += 1
+                updateServiceDownStatus()
+                errorMessage = isServiceDown
+                    ? "Claude appears to be down. Retrying automatically..."
+                    : error.localizedDescription
             }
             isLoading = false
         }
+    }
+
+    /// Fetch only if enough time has passed since last fetch (for popover open)
+    func fetchUsageIfStale() {
+        if let last = lastUpdated, Date().timeIntervalSince(last) < minFetchInterval {
+            return
+        }
+        fetchUsage()
     }
 
     // MARK: - Settings Actions
@@ -288,6 +364,8 @@ final class UsageViewModel: ObservableObject {
         removeLaunchAgent()
         refreshTimer?.invalidate()
         refreshTimer = nil
+        countdownTimer?.invalidate()
+        countdownTimer = nil
         scraper = nil
         apiClient = nil
         notificationManager.reset()
@@ -301,71 +379,98 @@ final class UsageViewModel: ObservableObject {
         rateLimitTier = nil
         sessionResetDescription = ""
         weeklyResetDescription = ""
+        sessionResetsAt = nil
+        weeklyResetsAt = nil
+        opusResetsAt = nil
+        sonnetResetsAt = nil
+        oauthAppsResetsAt = nil
+        coworkResetsAt = nil
+        extraUsageResetsAt = nil
         lastUpdated = nil
         errorMessage = nil
         lastUsageData = nil
         isSetupComplete = false
         launchAtLogin = false
         isPacingWarning = false
+        isServiceDown = false
+        consecutiveFailures = 0
     }
 
     // MARK: - Private
 
     private func applyUsageData(_ data: ClaudeUsageData) {
+        // Helper: only assign if value actually changed (reduces SwiftUI churn)
+        func updateIfNeeded<T: Equatable>(_ property: inout T, _ newValue: T) {
+            if property != newValue { property = newValue }
+        }
+
         if let session = data.fiveHour {
-            sessionPercent = session.percentUsed
-            sessionResetDescription = formatResetTime(session.resetsAt)
+            updateIfNeeded(&sessionPercent, session.percentUsed)
+            sessionResetsAt = session.resetsAt
+            updateIfNeeded(&sessionResetDescription, formatResetTime(session.resetsAt))
         }
 
         if let weekly = data.sevenDay {
-            weeklyPercent = weekly.percentUsed
-            weeklyResetDescription = formatResetTime(weekly.resetsAt)
+            updateIfNeeded(&weeklyPercent, weekly.percentUsed)
+            weeklyResetsAt = weekly.resetsAt
+            updateIfNeeded(&weeklyResetDescription, formatResetTime(weekly.resetsAt))
         }
 
         if let opus = data.sevenDayOpus {
-            opusPercent = opus.percentUsed
-            opusResetDescription = formatResetTime(opus.resetsAt)
+            updateIfNeeded(&opusPercent, opus.percentUsed)
+            opusResetsAt = opus.resetsAt
+            updateIfNeeded(&opusResetDescription, formatResetTime(opus.resetsAt))
         } else {
             opusPercent = nil
             opusResetDescription = nil
+            opusResetsAt = nil
         }
 
         if let sonnet = data.sevenDaySonnet {
-            sonnetPercent = sonnet.percentUsed
-            sonnetResetDescription = formatResetTime(sonnet.resetsAt)
+            updateIfNeeded(&sonnetPercent, sonnet.percentUsed)
+            sonnetResetsAt = sonnet.resetsAt
+            updateIfNeeded(&sonnetResetDescription, formatResetTime(sonnet.resetsAt))
         } else {
             sonnetPercent = nil
             sonnetResetDescription = nil
+            sonnetResetsAt = nil
         }
 
         if let oauthApps = data.sevenDayOAuthApps {
-            oauthAppsPercent = oauthApps.percentUsed
-            oauthAppsResetDescription = formatResetTime(oauthApps.resetsAt)
+            updateIfNeeded(&oauthAppsPercent, oauthApps.percentUsed)
+            oauthAppsResetsAt = oauthApps.resetsAt
+            updateIfNeeded(&oauthAppsResetDescription, formatResetTime(oauthApps.resetsAt))
         } else {
             oauthAppsPercent = nil
             oauthAppsResetDescription = nil
+            oauthAppsResetsAt = nil
         }
 
         if let cowork = data.sevenDayCowork {
-            coworkPercent = cowork.percentUsed
-            coworkResetDescription = formatResetTime(cowork.resetsAt)
+            updateIfNeeded(&coworkPercent, cowork.percentUsed)
+            coworkResetsAt = cowork.resetsAt
+            updateIfNeeded(&coworkResetDescription, formatResetTime(cowork.resetsAt))
         } else {
             coworkPercent = nil
             coworkResetDescription = nil
+            coworkResetsAt = nil
         }
 
         if let extra = data.extraUsage {
-            extraUsagePercent = extra.percentUsed
-            extraUsageResetDescription = formatResetTime(extra.resetsAt)
+            updateIfNeeded(&extraUsagePercent, extra.percentUsed)
+            extraUsageResetsAt = extra.resetsAt
+            updateIfNeeded(&extraUsageResetDescription, formatResetTime(extra.resetsAt))
         } else {
             extraUsagePercent = nil
             extraUsageResetDescription = nil
+            extraUsageResetsAt = nil
         }
 
-        rateLimitTier = data.rateLimitTier
+        updateIfNeeded(&rateLimitTier, data.rateLimitTier)
 
         // Pacing indicator
-        isPacingWarning = calculatePacingWarning(data)
+        let newPacing = calculatePacingWarning(data)
+        updateIfNeeded(&isPacingWarning, newPacing)
 
         // Notifications
         if notificationsEnabled {
@@ -442,6 +547,108 @@ final class UsageViewModel: ObservableObject {
         refreshTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(refreshInterval), repeats: true) { [weak self] _ in
             self?.fetchUsage()
         }
+    }
+
+    private func updateServiceDownStatus() {
+        let wasDown = isServiceDown
+        isServiceDown = consecutiveFailures >= serviceDownThreshold
+        // Notify once when transitioning to service-down state
+        if isServiceDown && !wasDown && notificationsEnabled {
+            notificationManager.sendServiceDown()
+        }
+    }
+
+    /// Reschedule the next refresh after a specific delay (e.g., after 429)
+    private func rescheduleRefresh(interval: TimeInterval) {
+        refreshTimer?.invalidate()
+        refreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
+            self?.fetchUsage()
+            self?.startAutoRefresh()
+        }
+    }
+
+    /// Adjust polling frequency based on current usage level
+    private func adjustRefreshRate() {
+        let maxUsage = max(sessionPercent, weeklyPercent)
+        let effectiveInterval: TimeInterval
+        if maxUsage > 0.8 {
+            effectiveInterval = 30
+        } else if maxUsage > 0.5 {
+            effectiveInterval = TimeInterval(refreshInterval) / 2
+        } else {
+            effectiveInterval = TimeInterval(refreshInterval)
+        }
+
+        // Only restart timer if interval actually changed
+        let currentInterval = refreshTimer?.timeInterval ?? 0
+        if abs(currentInterval - effectiveInterval) > 1 {
+            refreshTimer?.invalidate()
+            refreshTimer = Timer.scheduledTimer(withTimeInterval: effectiveInterval, repeats: true) { [weak self] _ in
+                self?.fetchUsage()
+            }
+        }
+    }
+
+    // MARK: - Live Countdown
+
+    private func startCountdownTimer() {
+        countdownTimer?.invalidate()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.updateCountdowns()
+        }
+    }
+
+    private func updateCountdowns() {
+        if let date = sessionResetsAt {
+            sessionResetDescription = formatResetTime(date)
+        }
+        if let date = weeklyResetsAt {
+            weeklyResetDescription = formatResetTime(date)
+        }
+        if let date = opusResetsAt {
+            opusResetDescription = formatResetTime(date)
+        }
+        if let date = sonnetResetsAt {
+            sonnetResetDescription = formatResetTime(date)
+        }
+        if let date = oauthAppsResetsAt {
+            oauthAppsResetDescription = formatResetTime(date)
+        }
+        if let date = coworkResetsAt {
+            coworkResetDescription = formatResetTime(date)
+        }
+        if let date = extraUsageResetsAt {
+            extraUsageResetDescription = formatResetTime(date)
+        }
+    }
+
+    // MARK: - System Event Observers
+
+    private func observeSystemEvents() {
+        // Refresh on wake from sleep
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.fetchUsage()
+            self?.startAutoRefresh() // Reset timer cadence after wake
+        }
+
+        // Refresh on network reconnect
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            guard let self = self else { return }
+            let isSatisfied = path.status == .satisfied
+            if isSatisfied && self.wasNetworkUnsatisfied {
+                DispatchQueue.main.async {
+                    self.fetchUsageIfStale()
+                }
+            }
+            self.wasNetworkUnsatisfied = !isSatisfied
+        }
+        monitor.start(queue: DispatchQueue(label: "com.claudephobia.network"))
+        networkMonitor = monitor
     }
 
     private func loadSettings() {

@@ -32,14 +32,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateMenuBarDisplay()
 
         // Re-render menu bar when any relevant property changes
-        Publishers.CombineLatest4(
-            viewModel.$sessionPercent,
-            viewModel.$weeklyPercent,
-            viewModel.$menuBarDisplayMode,
-            viewModel.$isPacingWarning
+        Publishers.CombineLatest(
+            Publishers.CombineLatest4(
+                viewModel.$sessionPercent,
+                viewModel.$weeklyPercent,
+                viewModel.$menuBarDisplayMode,
+                viewModel.$isPacingWarning
+            ),
+            viewModel.$isServiceDown
         )
         .receive(on: DispatchQueue.main)
-        .sink { [weak self] _, _, _, _ in
+        .sink { [weak self] _, _ in
             self?.updateMenuBarDisplay()
         }
         .store(in: &cancellables)
@@ -91,7 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         button.image = MenuBarRenderer.createImage(
             sessionPercent: viewModel.sessionPercent,
             weeklyPercent: viewModel.weeklyPercent,
-            isPacingWarning: viewModel.isPacingWarning
+            isPacingWarning: viewModel.isPacingWarning,
+            isServiceDown: viewModel.isServiceDown
         )
         button.imagePosition = .imageLeading
 
@@ -105,7 +109,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             sessionPercent: viewModel.sessionPercent,
             sessionReset: viewModel.sessionResetDescription,
             weeklyPercent: viewModel.weeklyPercent,
-            weeklyReset: viewModel.weeklyResetDescription
+            weeklyReset: viewModel.weeklyResetDescription,
+            isServiceDown: viewModel.isServiceDown
         )
     }
 
@@ -133,6 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if popover.isShown {
             closePopover()
         } else if let button = statusItem.button {
+            viewModel.fetchUsageIfStale()
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             startEventMonitor()
         }

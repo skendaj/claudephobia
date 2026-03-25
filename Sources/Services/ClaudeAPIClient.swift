@@ -4,12 +4,24 @@ enum ClaudeAPIError: LocalizedError {
     case unauthorized
     case invalidResponse(String)
     case networkError(Error)
+    case rateLimited
+    case serverError(Int)
 
     var errorDescription: String? {
         switch self {
         case .unauthorized: return "Session expired. Update your session key."
         case .invalidResponse(let detail): return "Unexpected response: \(detail)"
         case .networkError(let err): return err.localizedDescription
+        case .rateLimited: return "Rate limited by Claude. Will retry shortly."
+        case .serverError(let code): return "Claude server error (\(code)). Will retry shortly."
+        }
+    }
+
+    /// Whether this error is transient and worth retrying
+    var isRetryable: Bool {
+        switch self {
+        case .networkError, .serverError: return true
+        case .unauthorized, .invalidResponse, .rateLimited: return false
         }
     }
 }

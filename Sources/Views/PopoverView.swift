@@ -199,8 +199,30 @@ struct PopoverView: View {
 
             Divider().padding(.vertical, 10)
 
+            // Service down banner
+            if viewModel.isServiceDown {
+                HStack(spacing: 6) {
+                    Image(systemName: "icloud.slash.fill")
+                        .foregroundColor(.red)
+                        .font(.system(size: 13))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Claude service appears down")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.red)
+                        Text("Showing last known data. Retrying automatically.")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.red.opacity(0.08))
+                .cornerRadius(6)
+                .padding(.bottom, 8)
+            }
+
             // Error
-            if let error = viewModel.errorMessage {
+            if let error = viewModel.errorMessage, !viewModel.isServiceDown {
                 HStack(spacing: 4) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(.orange)
@@ -226,6 +248,15 @@ struct PopoverView: View {
                         .frame(width: 12, height: 12)
                 }
                 Spacer()
+
+//                // DEBUG: Toggle service down
+//                Button(action: { viewModel.debugToggleServiceDown() }) {
+//                    Image(systemName: "ladybug.fill")
+//                        .font(.system(size: 12))
+//                        .foregroundColor(.red.opacity(0.5))
+//                }
+//                .buttonStyle(.plain)
+//                .help("Debug: Toggle service down")
 
                 Button(action: { viewModel.clearSessionKey() }) {
                     Label("Clear Key", systemImage: "key.slash")

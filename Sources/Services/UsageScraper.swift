@@ -5,6 +5,7 @@ import Foundation
 /// for utilization data and /api/organizations/{id}/rate_limits for tier info.
 final class UsageScraper {
     private let sessionKey: String
+    private var cachedOrgId: String?
 
     init(sessionKey: String) {
         self.sessionKey = sessionKey
@@ -17,7 +18,13 @@ final class UsageScraper {
     // MARK: - Public
 
     func scrape() async throws -> ClaudeUsageData {
-        let orgId = try await fetchOrgId()
+        let orgId: String
+        if let cached = cachedOrgId {
+            orgId = cached
+        } else {
+            orgId = try await fetchOrgId()
+            cachedOrgId = orgId
+        }
 
         // Fetch usage and rate limits in parallel
         async let usageResult = fetchUsage(orgId: orgId)
@@ -36,6 +43,25 @@ final class UsageScraper {
             extraUsage: usage.extraUsage,
             rateLimitTier: tier
         )
+    }
+
+    /// Retries scrape() on transient failures with exponential backoff.
+    func scrapeWithRetry(maxAttempts: Int = 3) async throws -> ClaudeUsageData {
+        var lastError: Error?
+        for attempt in 0..<maxAttempts {
+            do {
+                return try await scrape()
+            } catch let error as ClaudeAPIError where error.isRetryable {
+                lastError = error
+                if attempt < maxAttempts - 1 {
+                    let delay = UInt64(pow(2.0, Double(attempt + 1))) * 1_000_000_000
+                    try await Task.sleep(nanoseconds: delay)
+                }
+            } catch {
+                throw error // Non-retryable errors propagate immediately
+            }
+        }
+        throw lastError!
     }
 
     // MARK: - API Calls
@@ -62,12 +88,16 @@ final class UsageScraper {
         if status == 401 || status == 403 {
             throw ClaudeAPIError.unauthorized
         }
+        if status == 429 {
+            throw ClaudeAPIError.rateLimited
+        }
+        if status >= 500 {
+            throw ClaudeAPIError.serverError(status)
+        }
 
         guard status == 200,
               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return ClaudeUsageData(fiveHour: nil, sevenDay: nil, sevenDayOpus: nil,
-                                   sevenDaySonnet: nil, sevenDayOAuthApps: nil,
-                                   sevenDayCowork: nil, extraUsage: nil, rateLimitTier: nil)
+            throw ClaudeAPIError.invalidResponse("Usage endpoint returned status \(status)")
         }
 
         return ClaudeUsageData(

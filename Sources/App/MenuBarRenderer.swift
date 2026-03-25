@@ -5,21 +5,24 @@ enum MenuBarRenderer {
     private static let iconWidth: CGFloat = 80
 
     static func createImage(sessionPercent: Double, weeklyPercent: Double,
-                            isPacingWarning: Bool) -> NSImage {
+                            isPacingWarning: Bool, isServiceDown: Bool = false) -> NSImage {
         let height: CGFloat = 16
 
         let flameImg: NSImage? = isPacingWarning ? createFlameImage() : nil
-        let flameSpace: CGFloat = flameImg.map { $0.size.width + 2 } ?? 0
-        let totalWidth = iconWidth + flameSpace
+        let downImg: NSImage? = isServiceDown ? createServiceDownImage() : nil
+        let trailingImg = downImg ?? flameImg
+        let trailingSpace: CGFloat = trailingImg.map { $0.size.width + 2 } ?? 0
+        let totalWidth = iconWidth + trailingSpace
 
         let image = NSImage(size: NSSize(width: totalWidth, height: height))
         image.lockFocus()
 
-        drawDualBar(session: sessionPercent, weekly: weeklyPercent, width: iconWidth, height: height)
+        drawDualBar(session: sessionPercent, weekly: weeklyPercent, width: iconWidth, height: height,
+                    isServiceDown: isServiceDown)
 
-        if let flame = flameImg {
-            let y = (height - flame.size.height) / 2
-            flame.draw(at: NSPoint(x: iconWidth + 2, y: y), from: .zero, operation: .sourceOver, fraction: 1.0)
+        if let trailing = trailingImg {
+            let y = (height - trailing.size.height) / 2
+            trailing.draw(at: NSPoint(x: iconWidth + 2, y: y), from: .zero, operation: .sourceOver, fraction: 1.0)
         }
 
         image.unlockFocus()
@@ -36,8 +39,13 @@ enum MenuBarRenderer {
     }
 
     static func tooltip(sessionPercent: Double, sessionReset: String,
-                        weeklyPercent: Double, weeklyReset: String) -> String {
+                        weeklyPercent: Double, weeklyReset: String,
+                        isServiceDown: Bool = false) -> String {
         var lines: [String] = []
+        if isServiceDown {
+            lines.append("Claude service appears down")
+            lines.append("")
+        }
         lines.append("5-hour session: \(pct(sessionPercent)) used")
         if !sessionReset.isEmpty { lines.append(sessionReset) }
         lines.append("7-day weekly: \(pct(weeklyPercent)) used")
@@ -63,6 +71,26 @@ enum MenuBarRenderer {
         return .systemBlue
     }
 
+    // MARK: - Service Down
+
+    private static func createServiceDownImage() -> NSImage? {
+        let sizeConfig = NSImage.SymbolConfiguration(pointSize: 9, weight: .medium)
+        let colorConfig = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
+        let config = sizeConfig.applying(colorConfig)
+
+        if let symbol = NSImage(systemSymbolName: "icloud.slash.fill", accessibilityDescription: nil)?
+            .withSymbolConfiguration(config) {
+            return symbol
+        }
+        let size = NSSize(width: 8, height: 8)
+        let img = NSImage(size: size)
+        img.lockFocus()
+        NSColor.systemRed.setFill()
+        NSBezierPath(ovalIn: NSRect(origin: .zero, size: size)).fill()
+        img.unlockFocus()
+        return img
+    }
+
     // MARK: - Flame
 
     private static func createFlameImage() -> NSImage? {
@@ -85,7 +113,8 @@ enum MenuBarRenderer {
 
     // MARK: - Dual Bar
 
-    private static func drawDualBar(session: Double, weekly: Double, width: CGFloat, height: CGFloat) {
+    private static func drawDualBar(session: Double, weekly: Double, width: CGFloat, height: CGFloat,
+                                    isServiceDown: Bool = false) {
         let dotSize: CGFloat = 7
         let dotGap: CGFloat = 4
         let barWidth = width - dotSize - dotGap
@@ -95,19 +124,21 @@ enum MenuBarRenderer {
         let botY = (height - gap) / 2 - barHeight
         let barX = dotSize + dotGap
 
-        // Status dot
+        // Status dot — grey when service is down
         let worst = max(session, weekly)
         let dotY = (height - dotSize) / 2
         let dotPath = NSBezierPath(ovalIn: NSRect(x: 0, y: dotY, width: dotSize, height: dotSize))
-        gaugeColor(for: worst).setFill()
+        let dotColor: NSColor = isServiceDown ? .systemGray : gaugeColor(for: worst)
+        dotColor.setFill()
         dotPath.fill()
 
-        // Bars
-        drawPillBar(in: NSRect(x: barX, y: topY, width: barWidth, height: barHeight), percent: session)
-        drawPillBar(in: NSRect(x: barX, y: botY, width: barWidth, height: barHeight), percent: weekly)
+        // Bars — dimmed when service is down
+        let alpha: CGFloat = isServiceDown ? 0.4 : 1.0
+        drawPillBar(in: NSRect(x: barX, y: topY, width: barWidth, height: barHeight), percent: session, alpha: alpha)
+        drawPillBar(in: NSRect(x: barX, y: botY, width: barWidth, height: barHeight), percent: weekly, alpha: alpha)
     }
 
-    private static func drawPillBar(in rect: NSRect, percent: Double) {
+    private static func drawPillBar(in rect: NSRect, percent: Double, alpha: CGFloat = 1.0) {
         let bgPath = NSBezierPath(roundedRect: rect, xRadius: rect.height / 2, yRadius: rect.height / 2)
         NSColor.tertiaryLabelColor.withAlphaComponent(0.25).setFill()
         bgPath.fill()
@@ -120,7 +151,7 @@ enum MenuBarRenderer {
                                   width: fillW, height: rect.height - inset * 2)
             let fillPath = NSBezierPath(roundedRect: fillRect,
                                         xRadius: fillRect.height / 2, yRadius: fillRect.height / 2)
-            barColor(for: percent).setFill()
+            barColor(for: percent).withAlphaComponent(alpha).setFill()
             fillPath.fill()
         }
     }

@@ -73,6 +73,19 @@ final class NotificationManager {
         )
     }
 
+    func sendServiceDown() {
+        guard !sentKeys.contains("service-down") else { return }
+        sentKeys.insert("service-down")
+        send(
+            title: "Claudephobia \u{2014} Service Down",
+            body: "Claude appears to be unreachable. Usage data may be stale."
+        )
+    }
+
+    func clearServiceDown() {
+        sentKeys.remove("service-down")
+    }
+
     func reset() {
         sentKeys.removeAll()
         previousPercents.removeAll()
