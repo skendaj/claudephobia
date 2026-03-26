@@ -1,5 +1,24 @@
 import SwiftUI
 
+extension Bundle {
+    /// Safe accessor for SPM resource bundle — returns nil instead of fatalError
+    static var safeModule: Bundle? = {
+        let bundleName = "Claudephobia_Claudephobia"
+        let candidates = [
+            Bundle.main.resourceURL,
+            Bundle.main.bundleURL,
+            Bundle.main.executableURL?.deletingLastPathComponent(),
+        ]
+        for candidate in candidates {
+            guard let dir = candidate else { continue }
+            if let bundle = Bundle(url: dir.appendingPathComponent(bundleName + ".bundle")) {
+                return bundle
+            }
+        }
+        return nil
+    }()
+}
+
 extension Color {
     static let accent = Color(red: 0xDE / 255.0, green: 0x73 / 255.0, blue: 0x56 / 255.0)
 }
@@ -352,8 +371,17 @@ struct AppIconView: View {
     var size: CGFloat = 48
 
     private static let cachedImage: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "icon", withExtension: "png"),
-              let image = NSImage(contentsOf: url) else { return nil }
+        // Try SPM resource bundle first, fall back to app bundle Resources
+        let url: URL? = {
+            if let spm = Bundle.safeModule?.url(forResource: "icon", withExtension: "png") {
+                return spm
+            }
+            if let app = Bundle.main.url(forResource: "icon", withExtension: "png") {
+                return app
+            }
+            return nil
+        }()
+        guard let url = url, let image = NSImage(contentsOf: url) else { return nil }
         image.size = NSSize(width: 256, height: 256)
         return image
     }()

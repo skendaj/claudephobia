@@ -50,6 +50,12 @@ jobs:
           cp .build/release/Claudephobia "${CONTENTS}/MacOS/Claudephobia"
           cp Resources/Info.plist "${CONTENTS}/Info.plist"
 
+          # Copy SPM resource bundle (contains icon.png)
+          RESOURCE_BUNDLE=$(find .build -path "*/release/Claudephobia_Claudephobia.bundle" -type d | head -1)
+          if [ -n "$RESOURCE_BUNDLE" ]; then
+            cp -R "$RESOURCE_BUNDLE" "${CONTENTS}/MacOS/"
+          fi
+
           if [ -f "Resources/AppIcon.icns" ]; then
             cp "Resources/AppIcon.icns" "${CONTENTS}/Resources/AppIcon.icns"
           fi

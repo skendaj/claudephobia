@@ -20,6 +20,15 @@ mkdir -p "${CONTENTS}/Resources"
 # Copy binary
 cp "${BUILD_DIR}/${APP_NAME}" "${CONTENTS}/MacOS/${APP_NAME}"
 
+# Copy SPM resource bundle
+RESOURCE_BUNDLE=$(find .build -path "*/release/${APP_NAME}_${APP_NAME}.bundle" -type d | head -1)
+if [ -n "$RESOURCE_BUNDLE" ]; then
+    cp -R "$RESOURCE_BUNDLE" "${CONTENTS}/MacOS/"
+    echo "Resource bundle included."
+else
+    echo "Warning: SPM resource bundle not found."
+fi
+
 # Copy Info.plist
 cp Resources/Info.plist "${CONTENTS}/Info.plist"
 

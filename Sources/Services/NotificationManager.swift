@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import UserNotifications
 
 /// Sends native macOS notifications when usage crosses warning or critical thresholds,
 /// and optionally when limits reset.
@@ -10,7 +11,7 @@ final class NotificationManager {
     private var previousPercents: [String: Double] = [:]
 
     func requestPermission() {
-        // osascript notifications don't need permission
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     /// Check usage and fire notifications if thresholds are crossed.
@@ -94,34 +95,16 @@ final class NotificationManager {
     // MARK: - Private
 
     private func send(title: String, body: String) {
-        let notification = NSUserNotification()
-        notification.title = title
-        notification.informativeText = body
-        notification.soundName = NSUserNotificationDefaultSoundName
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
 
-        // Attach the app icon so notifications show the Claudephobia icon
-        if let iconPath = Self.appIconURL {
-            notification.contentImage = NSImage(contentsOf: iconPath)
-        }
-
-        NSUserNotificationCenter.default.deliver(notification)
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
     }
-
-    /// Resolves the app icon from the bundle or the source Resources directory.
-    private static var appIconURL: URL? = {
-        // When running as a .app bundle
-        if let bundlePath = Bundle.main.url(forResource: "AppIcon", withExtension: "icns") {
-            return bundlePath
-        }
-        // When running the debug binary directly, look relative to the executable
-        let execURL = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0])
-        let projectRoot = execURL
-            .deletingLastPathComponent() // debug/
-            .deletingLastPathComponent() // .build/
-        let resourceIcon = projectRoot.appendingPathComponent("Resources/AppIcon.icns")
-        if FileManager.default.fileExists(atPath: resourceIcon.path) {
-            return resourceIcon
-        }
-        return nil
-    }()
 }
