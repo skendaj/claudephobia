@@ -115,6 +115,17 @@ Notifications are stateful — they fire once per threshold crossing and reset w
 
 Use the **Send Test Notification** button in Settings to verify notifications work.
 
+### Phone Notifications
+
+Get Claudephobia alerts on your phone (iOS or Android) via [ntfy.sh](https://ntfy.sh) — a free, open-source push notification service:
+
+1. Install the **ntfy** app ([App Store](https://apps.apple.com/app/ntfy/id1625396347) or [Google Play](https://play.google.com/store/apps/details?id=io.heckel.ntfy))
+2. Subscribe to a unique topic (e.g. `claudephobia-yourname123`)
+3. In Claudephobia Settings → **Phone**, enable phone notifications and enter the same topic
+4. Hit **Send Test to Phone** to verify
+
+All alerts (warning, critical, reset, service down) are mirrored to your phone. Critical alerts use urgent priority to break through Do Not Disturb. You can also [self-host ntfy](https://docs.ntfy.sh/install/) for complete privacy.
+
 ### Service Down Detection
 
 Claudephobia detects when Claude's service is unavailable:
@@ -138,10 +149,11 @@ Claudephobia detects when Claude's service is unavailable:
 
 ### Settings
 
-Five-tab settings window:
+Six-tab settings window:
 
 - **General** — text display mode (icon only / icon + percentages / icon + compact), auto-refresh interval, launch at login
 - **Notifications** — enable/disable, warning and critical thresholds, monitored limits list, reset notifications toggle, test notification button
+- **Phone** — enable phone push notifications via ntfy.sh, topic and server URL configuration, test button
 - **Account** — update your session key (stored securely in Keychain)
 - **Data** — export usage as JSON, reset all data (clears Keychain, UserDefaults, LaunchAgent)
 - **About** — privacy statement, open-source info, author credit
@@ -162,7 +174,8 @@ Sources/
 │   ├── ClaudeAPIClient.swift           # Claude API client & data models
 │   ├── UsageScraper.swift              # Fetches /usage and /rate_limits
 │   ├── KeychainHelper.swift            # macOS Keychain wrapper
-│   └── NotificationManager.swift       # NSUserNotificationCenter-based notifications
+│   ├── NotificationManager.swift       # macOS notifications + ntfy.sh push
+│   └── PushNotificationService.swift   # Phone push via ntfy.sh (iOS/Android)
 ├── ViewModels/
 │   └── UsageViewModel.swift            # Central state, settings, refresh logic
 └── Views/
