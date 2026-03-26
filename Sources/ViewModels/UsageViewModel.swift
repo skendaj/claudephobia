@@ -102,8 +102,12 @@ final class UsageViewModel: ObservableObject {
 
     // MARK: - Init
 
+    /// Data schema version — bump this to force a reset on next launch
+    private static let dataSchemaVersion = 2
+
     init() {
         migrateAll()
+        resetIfNewVersion()
         loadSettings()
         if isSetupComplete, let key = storedSessionKey {
             scraper = UsageScraper(sessionKey: key)
@@ -660,6 +664,35 @@ final class UsageViewModel: ObservableObject {
         criticalThreshold = UserDefaults.standard.object(forKey: "claudephobia.critical_threshold") as? Double ?? 0.90
         launchAtLogin = UserDefaults.standard.bool(forKey: "claudephobia.launch_at_login")
         notifyOnReset = UserDefaults.standard.object(forKey: "claudephobia.notify_on_reset") as? Bool ?? true
+    }
+
+    // MARK: - Version Reset
+
+    private func resetIfNewVersion() {
+        let key = "claudephobia.data_schema_version"
+        let stored = UserDefaults.standard.integer(forKey: key)
+        guard stored < Self.dataSchemaVersion else { return }
+
+        // Preserve the session key so users don't have to re-enter it
+        let savedKey = storedSessionKey
+
+        // Wipe all UserDefaults
+        let allKeys = [
+            "claudephobia.setup_complete", "claudephobia.menu_bar_display",
+            "claudephobia.icon_style",
+            "claudephobia.notifications_enabled", "claudephobia.refresh_interval",
+            "claudephobia.warning_threshold", "claudephobia.critical_threshold",
+            "claudephobia.launch_at_login", "claudephobia.notify_on_reset",
+        ]
+        allKeys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+
+        // Restore session key and mark setup complete if we had one
+        if let savedKey = savedKey {
+            storeSessionKey(savedKey)
+            UserDefaults.standard.set(true, forKey: "claudephobia.setup_complete")
+        }
+
+        UserDefaults.standard.set(Self.dataSchemaVersion, forKey: key)
     }
 
     // MARK: - Migration
