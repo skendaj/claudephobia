@@ -7,6 +7,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
+    CLAUDEPHOBIA_APP_GROUP: group.com.claudephobia.app
+    DEVELOPMENT_TEAM: 53CZ5753ZD
 
 targets:
 
@@ -23,10 +25,14 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Resources/Claudephobia.entitlements
         MACOSX_DEPLOYMENT_TARGET: "13.0"
         COMBINE_HIDPI_IMAGES: true
-        CODE_SIGN_STYLE: Manual
-        DEVELOPMENT_TEAM: 53CZ5753ZD
-        CODE_SIGN_IDENTITY: "Developer ID Application"
-        PROVISIONING_PROFILE_SPECIFIER: "Claudephobia Developer ID"
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: Apple Development
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Developer ID Application"
+          PROVISIONING_PROFILE_SPECIFIER: "Claudephobia Developer ID"
     dependencies:
       - target: ClaudephobiaWidget
         embed: true
@@ -44,8 +50,12 @@ targets:
         INFOPLIST_FILE: WidgetExtension/Info.plist
         CODE_SIGN_ENTITLEMENTS: WidgetExtension/ClaudephobiaWidget.entitlements
         MACOSX_DEPLOYMENT_TARGET: "13.0"
-        CODE_SIGN_STYLE: Manual
-        DEVELOPMENT_TEAM: 53CZ5753ZD
-        CODE_SIGN_IDENTITY: "Developer ID Application"
-        PROVISIONING_PROFILE_SPECIFIER: "Claudephobia Widget Developer ID"
         APPLICATION_EXTENSION_API_ONLY: YES
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_IDENTITY: Apple Development
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Developer ID Application"
+          PROVISIONING_PROFILE_SPECIFIER: "Claudephobia Widget Developer ID"
