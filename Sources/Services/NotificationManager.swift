@@ -85,7 +85,7 @@ final class NotificationManager {
     }
 
     func sendTest() {
-        send(
+        sendLocal(
             title: "Claudephobia \u{2014} Test",
             body: "Notifications are working."
         )
@@ -116,6 +116,21 @@ final class NotificationManager {
     // MARK: - Private
 
     private func send(title: String, body: String, priority: Int = 3) {
+        sendLocal(title: title, body: body)
+
+        // Mirror to phone via ntfy.sh
+        if pushEnabled {
+            pushService.send(
+                title: title,
+                body: body,
+                topic: pushTopic,
+                serverURL: pushServerURL,
+                priority: priority
+            )
+        }
+    }
+
+    private func sendLocal(title: String, body: String) {
         if hasBundle {
             let content = UNMutableNotificationContent()
             content.title = title
@@ -137,17 +152,6 @@ final class NotificationManager {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
             process.arguments = ["-e", script]
             try? process.run()
-        }
-
-        // Mirror to phone via ntfy.sh
-        if pushEnabled {
-            pushService.send(
-                title: title,
-                body: body,
-                topic: pushTopic,
-                serverURL: pushServerURL,
-                priority: priority
-            )
         }
     }
 }
