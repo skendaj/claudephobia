@@ -200,8 +200,23 @@ final class UsageViewModel: ObservableObject {
 
     // MARK: - Fetch
 
+    private var isDemoMode: Bool {
+        storedSessionKey == "sk-ant-demo01-xK9pQr2vT8wLnY7cBZhJ5dF0uCmNqWsA3e6R1P4xK9pQr2vT8wLnY7-AA"
+    }
+
     func fetchUsage() {
         guard let scraper = scraper else { return }
+
+        if isDemoMode {
+            let data = makeDemoData()
+            lastUsageData = data
+            applyUsageData(data)
+            lastUpdated = Date()
+            errorMessage = nil
+            isLoading = false
+            return
+        }
+
         isLoading = true
         errorMessage = nil
 
@@ -781,6 +796,20 @@ final class UsageViewModel: ObservableObject {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         return f.string(from: Date())
+    }
+
+    private func makeDemoData() -> ClaudeUsageData {
+        let now = Date()
+        return ClaudeUsageData(
+            fiveHour:          RateLimitInfo(percentUsed: 0.72, resetsAt: now.addingTimeInterval(3600 * 2.5)),
+            sevenDay:          RateLimitInfo(percentUsed: 0.45, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDayOpus:      RateLimitInfo(percentUsed: 0.61, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDaySonnet:    RateLimitInfo(percentUsed: 0.33, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDayOAuthApps: RateLimitInfo(percentUsed: 0.10, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDayCowork:    RateLimitInfo(percentUsed: 0.05, resetsAt: now.addingTimeInterval(3600 * 52)),
+            extraUsage:        RateLimitInfo(percentUsed: 0.88, resetsAt: now.addingTimeInterval(3600 * 12)),
+            rateLimitTier:     "pro"
+        )
     }
 
     // MARK: - Legacy LaunchAgent Cleanup
