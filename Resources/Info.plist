@@ -28,5 +28,7 @@
     <string>Copyright © 2026. All rights reserved.</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
 </dict>
 </plist>
