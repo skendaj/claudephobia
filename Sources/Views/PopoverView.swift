@@ -162,7 +162,7 @@ struct PopoverView: View {
                 tint: barColor(viewModel.sessionPercent)
             )
 
-            Divider().padding(.vertical, 10)
+            Divider().padding(.vertical, 6)
 
             // 7-day weekly
             usageRow(
@@ -174,7 +174,7 @@ struct PopoverView: View {
 
             // Model-specific limits (only shown when available)
             if let opusPct = viewModel.opusPercent {
-                Divider().padding(.vertical, 10)
+                Divider().padding(.vertical, 6)
                 usageRow(
                     title: "Weekly \u{2014} Opus",
                     percent: opusPct,
@@ -184,7 +184,7 @@ struct PopoverView: View {
             }
 
             if let sonnetPct = viewModel.sonnetPercent {
-                Divider().padding(.vertical, 10)
+                Divider().padding(.vertical, 6)
                 usageRow(
                     title: "Weekly \u{2014} Sonnet",
                     percent: sonnetPct,
@@ -195,7 +195,7 @@ struct PopoverView: View {
 
             // OAuth Apps usage
             if let oauthPct = viewModel.oauthAppsPercent {
-                Divider().padding(.vertical, 10)
+                Divider().padding(.vertical, 6)
                 usageRow(
                     title: "Weekly \u{2014} OAuth Apps",
                     percent: oauthPct,
@@ -206,7 +206,7 @@ struct PopoverView: View {
 
             // Cowork usage
             if let coworkPct = viewModel.coworkPercent {
-                Divider().padding(.vertical, 10)
+                Divider().padding(.vertical, 6)
                 usageRow(
                     title: "Weekly \u{2014} Cowork",
                     percent: coworkPct,
@@ -217,7 +217,7 @@ struct PopoverView: View {
 
             // Extra usage
             if let extraPct = viewModel.extraUsagePercent {
-                Divider().padding(.vertical, 10)
+                Divider().padding(.vertical, 6)
                 usageRow(
                     title: "Extra usage",
                     percent: extraPct,
@@ -226,7 +226,7 @@ struct PopoverView: View {
                 )
             }
 
-            Divider().padding(.vertical, 10)
+            Divider().padding(.vertical, 6)
 
             // Service down banner
             if viewModel.isServiceDown {
@@ -314,7 +314,7 @@ struct PopoverView: View {
         Group {
             if viewModel.viewProgressStyle == 1 {
                 HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(title)
                             .font(.system(size: 13, weight: .medium))
                         if !resetDescription.isEmpty {
@@ -324,8 +324,9 @@ struct PopoverView: View {
                         }
                     }
                     Spacer()
-                    UsageCircularProgress(value: percent, tint: tint, size: 44)
+                    UsageCircularProgress(value: percent, tint: tint, size: 48)
                 }
+                .padding(.vertical, 6)
             } else {
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
@@ -346,6 +347,7 @@ struct PopoverView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                .padding(.vertical, 4)
             }
         }
     }

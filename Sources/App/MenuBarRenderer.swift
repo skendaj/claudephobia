@@ -126,10 +126,10 @@ enum MenuBarRenderer {
 
     /// Returns the width needed to fit two circle+value pairs.
     private static func circleIconWidth(session: Double, weekly: Double) -> CGFloat {
-        let circleD: CGFloat = 12
+        let circleD: CGFloat = 14
         let textGap: CGFloat = 3
-        let pairGap: CGFloat = 6
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+        let pairGap: CGFloat = 7
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         let attrs: [NSAttributedString.Key: Any] = [.font: font]
         let sessionW = (pct(session) as NSString).size(withAttributes: attrs).width
         let weeklyW  = (pct(weekly)  as NSString).size(withAttributes: attrs).width
@@ -176,7 +176,7 @@ enum MenuBarRenderer {
 
     private static func drawCircleArc(in rect: NSRect, percent: Double, alpha: CGFloat = 1.0) {
         let center = NSPoint(x: rect.midX, y: rect.midY)
-        let lineWidth: CGFloat = 2.0
+        let lineWidth: CGFloat = 2.5
         let radius = rect.width / 2 - lineWidth / 2
 
         // Background ring
