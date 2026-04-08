@@ -81,7 +81,7 @@ struct ShareCardView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Claudephobia")
+            Text("Clawdphobia")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundColor(cream)
             Text("Usage Report")
@@ -225,7 +225,7 @@ struct ShareCardView: View {
     private var footer: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("claudephobia")
+                Text("clawdphobia")
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(terracotta.opacity(0.5))
                 Text(formattedTimestamp)

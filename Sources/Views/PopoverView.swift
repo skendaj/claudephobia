@@ -54,7 +54,7 @@ struct PopoverView: View {
 
             AppIconView(size: 48)
 
-            Text("Claudephobia")
+            Text("Clawdphobia")
                 .font(.headline)
 
             Text("Fear of hitting Claude limits")
@@ -141,7 +141,7 @@ struct PopoverView: View {
             HStack(alignment: .center) {
                 HStack(spacing: 6) {
                     AppIconView(size: 14)
-                    Text("Claudephobia")
+                    Text("Clawdphobia")
                         .font(.system(size: 14, weight: .semibold))
                 }
                 Spacer()

@@ -87,7 +87,7 @@ struct SettingsView: View {
                 onClose()
             }
         } message: {
-            Text("This deletes all Claudephobia data including your session key from Keychain and removes the login item.")
+            Text("This deletes all Clawdphobia data including your session key from Keychain and removes the login item.")
         }
     }
 
@@ -222,7 +222,7 @@ struct SettingsView: View {
                     set: { _ in viewModel.toggleLaunchAtLogin() }
                 ))
 
-                Text("Start Claudephobia automatically when you log in")
+                Text("Start Clawdphobia automatically when you log in")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -230,7 +230,7 @@ struct SettingsView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 6) {
-                Button("Quit Claudephobia") {
+                Button("Quit Clawdphobia") {
                     NSApplication.shared.terminate(nil)
                 }
                 .foregroundColor(.red)
@@ -353,7 +353,7 @@ struct SettingsView: View {
 
     private var phoneTab: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Get Claudephobia alerts on your phone via ntfy.sh \u{2014} a free, open-source push service. Works with iOS and Android.")
+            Text("Get Clawdphobia alerts on your phone via ntfy.sh \u{2014} a free, open-source push service. Works with iOS and Android.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -472,6 +472,20 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(newSessionKey.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                HStack(spacing: 6) {
+                    Text("Just want to explore?")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Button("Try Demo Mode") {
+                        viewModel.updateSessionKey(UsageViewModel.demoSessionKey)
+                        newSessionKey = ""
+                    }
+                    .font(.caption)
+                }
             }
         }
     }
@@ -481,7 +495,7 @@ struct SettingsView: View {
     private var aboutTab: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Claudephobia reads your usage data directly from the Claude API using your session cookie. No data is sent to any third party. No cost involved.")
+                Text("Clawdphobia reads your usage data directly from the Claude API using your session cookie. No data is sent to any third party. No cost involved.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -554,7 +568,7 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
 
-                Text("Remove all Claudephobia data including session key, settings, and login item.")
+                Text("Remove all Clawdphobia data including session key, settings, and login item.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

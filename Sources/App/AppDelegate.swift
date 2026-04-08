@@ -211,7 +211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         window.contentView = NSHostingView(rootView: settingsView)
         window.center()
-        window.title = "Claudephobia Settings"
+        window.title = "Clawdphobia Settings"
         window.delegate = self
         window.isReleasedWhenClosed = false
 

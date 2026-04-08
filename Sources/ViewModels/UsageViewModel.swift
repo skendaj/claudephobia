@@ -204,8 +204,10 @@ final class UsageViewModel: ObservableObject {
 
     // MARK: - Fetch
 
+    static let demoSessionKey = "sk-ant-demo01-xK9pQr2vT8wLnY7cBZhJ5dF0uCmNqWsA3e6R1P4xK9pQr2vT8wLnY7-AA"
+
     private var isDemoMode: Bool {
-        storedSessionKey == "sk-ant-demo01-xK9pQr2vT8wLnY7cBZhJ5dF0uCmNqWsA3e6R1P4xK9pQr2vT8wLnY7-AA"
+        storedSessionKey == UsageViewModel.demoSessionKey
     }
 
     func fetchUsage() {
@@ -370,7 +372,7 @@ final class UsageViewModel: ObservableObject {
     func exportJSON() -> String {
         var dict: [String: Any] = [
             "exported_at": ISO8601DateFormatter().string(from: Date()),
-            "app": "Claudephobia"
+            "app": "Clawdphobia"
         ]
 
         if let tier = rateLimitTier {

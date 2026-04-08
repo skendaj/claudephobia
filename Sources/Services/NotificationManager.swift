@@ -47,14 +47,14 @@ final class NotificationManager {
         if percentUsed >= criticalThreshold && !sentKeys.contains(critKey) {
             sentKeys.insert(critKey)
             send(
-                title: "Claudephobia \u{2014} Critical",
+                title: "Clawdphobia \u{2014} Critical",
                 body: "\(label) at \(pct)%. You're about to hit your limit.",
                 priority: 5
             )
         } else if percentUsed >= warningThreshold && !sentKeys.contains(warnKey) {
             sentKeys.insert(warnKey)
             send(
-                title: "Claudephobia \u{2014} Warning",
+                title: "Clawdphobia \u{2014} Warning",
                 body: "\(label) at \(pct)%. Consider slowing down."
             )
         }
@@ -64,7 +64,7 @@ final class NotificationManager {
             if prev >= 0.20 && percentUsed < 0.05 && !sentKeys.contains(resetKey) {
                 sentKeys.insert(resetKey)
                 send(
-                    title: "Claudephobia \u{2014} Restored",
+                    title: "Clawdphobia \u{2014} Restored",
                     body: "\(label) has reset. You're good to go."
                 )
             }
@@ -86,7 +86,7 @@ final class NotificationManager {
 
     func sendTest() {
         sendLocal(
-            title: "Claudephobia \u{2014} Test",
+            title: "Clawdphobia \u{2014} Test",
             body: "Notifications are working."
         )
     }
@@ -99,7 +99,7 @@ final class NotificationManager {
         guard !sentKeys.contains("service-down") else { return }
         sentKeys.insert("service-down")
         send(
-            title: "Claudephobia \u{2014} Service Down",
+            title: "Clawdphobia \u{2014} Service Down",
             body: "Claude appears to be unreachable. Usage data may be stale."
         )
     }

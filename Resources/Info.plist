@@ -10,8 +10,10 @@
     <string>com.claudephobia.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
+    <key>CFBundleDisplayName</key>
+    <string>Clawdphobia</string>
     <key>CFBundleName</key>
-    <string>Claudephobia</string>
+    <string>Clawdphobia</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
