@@ -143,7 +143,7 @@ enum MenuBarRenderer {
         let textGap: CGFloat = 3
         let pairGap: CGFloat = 6
         let alpha: CGFloat = isServiceDown ? 0.4 : 1.0
-        let font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium)
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
 
         // Session pair
         let circleY = (height - circleD) / 2
