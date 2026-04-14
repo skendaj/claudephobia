@@ -112,20 +112,20 @@ jobs:
               zip -r "$ZIP_NAME" Claudephobia.app
               echo "NOTARIZED=true" >> "$GITHUB_ENV"
             else
-              echo "::warning::Notarization rejected. Fetching log..."
+              echo "::error::Notarization rejected. Fetching log..."
               xcrun notarytool log "$SUBMISSION_ID" \
                 --apple-id "$APPLE_ID" \
                 --team-id "$APPLE_TEAM_ID" \
                 --password "$APPLE_APP_PASSWORD" || true
-              echo "NOTARIZED=false" >> "$GITHUB_ENV"
+              exit 1
             fi
           else
-            echo "::warning::Notarization timed out. Fetching log..."
+            echo "::error::Notarization timed out. Fetching log..."
             xcrun notarytool log "$SUBMISSION_ID" \
               --apple-id "$APPLE_ID" \
               --team-id "$APPLE_TEAM_ID" \
               --password "$APPLE_APP_PASSWORD" || true
-            echo "NOTARIZED=false" >> "$GITHUB_ENV"
+            exit 1
           fi
 
       - name: Clean up keychain
