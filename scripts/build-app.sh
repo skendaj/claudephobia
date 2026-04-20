@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_NAME="Clawdphobia"
+APP_NAME="Clawdephobia"
 BUILD_DIR=".build/release"
 APP_BUNDLE="dist/${APP_NAME}.app"
 CONTENTS="${APP_BUNDLE}/Contents"
@@ -45,7 +45,7 @@ fi
 
 # Code sign with Developer ID + hardened runtime (required for notarization)
 echo "Signing with: ${SIGNING_IDENTITY}"
-codesign --force --options runtime --entitlements Resources/Clawdphobia.entitlements --sign "${SIGNING_IDENTITY}" "${APP_BUNDLE}"
+codesign --force --options runtime --entitlements Resources/Clawdephobia.entitlements --sign "${SIGNING_IDENTITY}" "${APP_BUNDLE}"
 echo "Signed."
 
 # Verify signature
@@ -59,7 +59,7 @@ cd dist
 zip -r "${APP_NAME}.zip" "${APP_NAME}.app"
 
 echo "Submitting for notarization..."
-xcrun notarytool submit "${APP_NAME}.zip" --keychain-profile "clawdphobia-notary" --wait
+xcrun notarytool submit "${APP_NAME}.zip" --keychain-profile "clawdephobia-notary" --wait
 
 echo "Stapling notarization ticket..."
 xcrun stapler staple "${APP_NAME}.app"

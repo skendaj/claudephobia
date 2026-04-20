@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 enum KeychainHelper {
-    private static let service = "com.clawdphobia.app"
+    private static let service = "com.claudephobia.app"
     private static let legacyServices = ["com.claudephobia.app", "com.claudemeter.app"]
 
     /// Migrate keys from old service names (one-time). Only writes if current service has no value.

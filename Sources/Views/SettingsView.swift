@@ -87,7 +87,7 @@ struct SettingsView: View {
                 onClose()
             }
         } message: {
-            Text("This deletes all Clawdphobia data including your session key from Keychain and removes the login item.")
+            Text("This deletes all Clawdephobia data including your session key from Keychain and removes the login item.")
         }
     }
 
@@ -222,7 +222,7 @@ struct SettingsView: View {
                     set: { _ in viewModel.toggleLaunchAtLogin() }
                 ))
 
-                Text("Start Clawdphobia automatically when you log in")
+                Text("Start Clawdephobia automatically when you log in")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }
@@ -230,7 +230,7 @@ struct SettingsView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 6) {
-                Button("Quit Clawdphobia") {
+                Button("Quit Clawdephobia") {
                     NSApplication.shared.terminate(nil)
                 }
                 .foregroundColor(.red)
@@ -353,7 +353,7 @@ struct SettingsView: View {
 
     private var phoneTab: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Get Clawdphobia alerts on your phone via ntfy.sh \u{2014} a free, open-source push service. Works with iOS and Android.")
+            Text("Get Clawdephobia alerts on your phone via ntfy.sh \u{2014} a free, open-source push service. Works with iOS and Android.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -373,7 +373,7 @@ struct SettingsView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Label("Install the ntfy app (App Store or Google Play)", systemImage: "1.circle")
-                        Label("Subscribe to a unique topic (e.g. clawdphobia-yourname)", systemImage: "2.circle")
+                        Label("Subscribe to a unique topic (e.g. clawdephobia-yourname)", systemImage: "2.circle")
                         Label("Enter that same topic below", systemImage: "3.circle")
                     }
                     .font(.caption)
@@ -387,7 +387,7 @@ struct SettingsView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
 
-                    TextField("e.g. clawdphobia-yourname123", text: Binding(
+                    TextField("e.g. clawdephobia-yourname123", text: Binding(
                         get: { viewModel.pushTopic },
                         set: { viewModel.setPushTopic($0) }
                     ))
@@ -495,7 +495,7 @@ struct SettingsView: View {
     private var aboutTab: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Clawdphobia reads your usage data directly from the Clawd API using your session cookie. No data is sent to any third party. No cost involved.")
+                Text("Clawdephobia reads your usage data directly from the Clawd API using your session cookie. No data is sent to any third party. No cost involved.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -568,7 +568,7 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .fontWeight(.medium)
 
-                Text("Remove all Clawdphobia data including session key, settings, and login item.")
+                Text("Remove all Clawdephobia data including session key, settings, and login item.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

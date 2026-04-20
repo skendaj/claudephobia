@@ -1,22 +1,22 @@
 <p align="center">
-  <img src="Resources/icon.png" width="128" height="128" alt="Clawdphobia icon">
+  <img src="Resources/icon.png" width="128" height="128" alt="Clawdephobia icon">
 </p>
 
-<h1 align="center">Clawdphobia</h1>
+<h1 align="center">Clawdephobia</h1>
 
 <p align="center"><em>The fear of hitting your Clawd limits.</em></p>
 
 <p align="center">A lightweight macOS menu bar app that monitors your AI assistant usage limits in real time.<br>See your 5-hour session and 7-day weekly usage at a glance — no browser tab required.</p>
 
 <p align="center">
-  <a href="https://github.com/skendaj/Clawdphobia/releases/latest/download/Clawdphobia.zip">
-    <img src="https://img.shields.io/badge/Download-Clawdphobia.zip-D97757?style=for-the-badge&logo=apple&logoColor=white" alt="Download">
+  <a href="https://github.com/skendaj/Clawdephobia/releases/latest/download/Clawdephobia.zip">
+    <img src="https://img.shields.io/badge/Download-Clawdephobia.zip-D97757?style=for-the-badge&logo=apple&logoColor=white" alt="Download">
   </a>
 </p>
 
 ## How It Works
 
-Clawdphobia uses your Clawd session cookie to read usage data directly from the Clawd API. It tracks:
+Clawdephobia uses your Clawd session cookie to read usage data directly from the Clawd API. It tracks:
 
 - **5-hour session limit** — the rolling short-term rate limit
 - **7-day weekly limit** — the rolling long-term rate limit
@@ -33,7 +33,7 @@ No data is sent to any third party. Everything runs locally on your Mac.
 3. Go to **Application** → **Cookies** and select the site
 4. Find the cookie named `sessionKey` and copy its value
 
-The key looks like `sk-ant-sid01-...`. Paste it into Clawdphobia when prompted.
+The key looks like `sk-ant-sid01-...`. Paste it into Clawdephobia when prompted.
 
 > Your session key is stored in the macOS Keychain and never leaves your machine.
 
@@ -41,8 +41,8 @@ The key looks like `sk-ant-sid01-...`. Paste it into Clawdphobia when prompted.
 
 ### Download (recommended)
 
-1. Go to [Releases](../../releases) and download `Clawdphobia.zip`
-2. Unzip and drag `Clawdphobia.app` to your Applications folder
+1. Go to [Releases](../../releases) and download `Clawdephobia.zip`
+2. Unzip and drag `Clawdephobia.app` to your Applications folder
 3. Right-click the app → **Open** (required on first launch to bypass Gatekeeper)
 
 The app is code-signed and notarized by Apple, so subsequent launches work normally.
@@ -55,15 +55,15 @@ Requires **macOS 13+** and **Swift 5.9+**.
 # Build the .app bundle
 ./scripts/build-app.sh
 
-# The app is in dist/Clawdphobia.app — double-click or:
-open dist/Clawdphobia.app
+# The app is in dist/Clawdephobia.app — double-click or:
+open dist/Clawdephobia.app
 ```
 
 Or for development:
 
 ```bash
 swift build
-.build/debug/Clawdphobia
+.build/debug/Clawdephobia
 ```
 
 You can also open `Package.swift` in Xcode and hit Run (`Cmd + R`).
@@ -117,18 +117,18 @@ Use the **Send Test Notification** button in Settings to verify notifications wo
 
 ### Phone Notifications
 
-Get Clawdphobia alerts on your phone (iOS or Android) via [ntfy.sh](https://ntfy.sh) — a free, open-source push notification service:
+Get Clawdephobia alerts on your phone (iOS or Android) via [ntfy.sh](https://ntfy.sh) — a free, open-source push notification service:
 
 1. Install the **ntfy** app ([App Store](https://apps.apple.com/app/ntfy/id1625396347) or [Google Play](https://play.google.com/store/apps/details?id=io.heckel.ntfy))
-2. Subscribe to a unique topic (e.g. `clawdphobia-yourname123`)
-3. In Clawdphobia Settings → **Phone**, enable phone notifications and enter the same topic
+2. Subscribe to a unique topic (e.g. `clawdephobia-yourname123`)
+3. In Clawdephobia Settings → **Phone**, enable phone notifications and enter the same topic
 4. Hit **Send Test to Phone** to verify
 
 All alerts (warning, critical, reset, service down) are mirrored to your phone. Critical alerts use urgent priority to break through Do Not Disturb. You can also [self-host ntfy](https://docs.ntfy.sh/install/) for complete privacy.
 
 ### Service Down Detection
 
-Clawdphobia detects when Clawd's service is unavailable:
+Clawdephobia detects when Clawd's service is unavailable:
 
 - Triggers after 3 consecutive server/network failures
 - Displays a red banner in the popover with "Showing last known data"
@@ -160,7 +160,7 @@ Six-tab settings window:
 
 ### Launch at Login
 
-Toggle in Settings → General. Creates a standard macOS LaunchAgent at `~/Library/LaunchAgents/com.clawdphobia.app.plist`.
+Toggle in Settings → General. Creates a standard macOS LaunchAgent at `~/Library/LaunchAgents/com.claudephobia.app.plist`.
 
 ## Architecture
 

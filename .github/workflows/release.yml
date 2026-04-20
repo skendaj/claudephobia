@@ -48,20 +48,20 @@ jobs:
       - name: Build app bundle
         run: |
           xcodebuild archive \
-            -project Clawdphobia.xcodeproj \
-            -scheme Clawdphobia \
+            -project Clawdephobia.xcodeproj \
+            -scheme Clawdephobia \
             -configuration Release \
-            -archivePath "$RUNNER_TEMP/Clawdphobia.xcarchive" \
+            -archivePath "$RUNNER_TEMP/Clawdephobia.xcarchive" \
             CODE_SIGN_IDENTITY="Developer ID Application: Bruno Skendaj (53CZ5753ZD)" \
             CODE_SIGN_STYLE=Manual \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            CODE_SIGN_ENTITLEMENTS="Resources/Clawdphobia-DevID.entitlements" \
+            CODE_SIGN_ENTITLEMENTS="Resources/Clawdephobia-DevID.entitlements" \
             ENABLE_HARDENED_RUNTIME=YES \
             OTHER_CODE_SIGN_FLAGS="--keychain $RUNNER_TEMP/signing.keychain-db" \
             DEVELOPMENT_TEAM="53CZ5753ZD"
 
-          cp -R "$RUNNER_TEMP/Clawdphobia.xcarchive/Products/Applications/Clawdphobia.app" ./Clawdphobia.app
-          codesign --verify --verbose ./Clawdphobia.app
+          cp -R "$RUNNER_TEMP/Clawdephobia.xcarchive/Products/Applications/Clawdephobia.app" ./Clawdephobia.app
+          codesign --verify --verbose ./Clawdephobia.app
 
       - name: Notarize
         env:
@@ -71,8 +71,8 @@ jobs:
         timeout-minutes: 30
         run: |
           VERSION="${GITHUB_REF_NAME}"
-          ZIP_NAME="Clawdphobia-${VERSION}.zip"
-          zip -r "$ZIP_NAME" Clawdphobia.app
+          ZIP_NAME="Clawdephobia-${VERSION}.zip"
+          zip -r "$ZIP_NAME" Clawdephobia.app
 
           echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
 
@@ -110,9 +110,9 @@ jobs:
             echo "Notarization status: $STATUS"
 
             if [ "$STATUS" = "Accepted" ]; then
-              xcrun stapler staple Clawdphobia.app
+              xcrun stapler staple Clawdephobia.app
               rm "$ZIP_NAME"
-              zip -r "$ZIP_NAME" Clawdphobia.app
+              zip -r "$ZIP_NAME" Clawdephobia.app
               echo "NOTARIZED=true" >> "$GITHUB_ENV"
             else
               echo "::error::Notarization rejected. Fetching log..."
@@ -136,12 +136,12 @@ jobs:
         run: security delete-keychain $RUNNER_TEMP/signing.keychain-db || true
 
       - name: Create stable download name
-        run: cp "$ZIP_NAME" Clawdphobia.zip
+        run: cp "$ZIP_NAME" Clawdephobia.zip
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ env.ZIP_NAME }}
-            Clawdphobia.zip
+            Clawdephobia.zip
           generate_release_notes: true

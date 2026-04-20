@@ -3,7 +3,7 @@ import SwiftUI
 extension Bundle {
     /// Safe accessor for SPM resource bundle — returns nil instead of fatalError
     static var safeModule: Bundle? = {
-        let bundleName = "Clawdphobia_Clawdphobia"
+        let bundleName = "Clawdephobia_Clawdephobia"
         let candidates = [
             Bundle.main.resourceURL,
             Bundle.main.bundleURL,
@@ -54,7 +54,7 @@ struct PopoverView: View {
 
             AppIconView(size: 48)
 
-            Text("Clawdphobia")
+            Text("Clawdephobia")
                 .font(.headline)
 
             Text("Fear of hitting Clawd limits")
@@ -160,7 +160,7 @@ struct PopoverView: View {
             HStack(alignment: .center) {
                 HStack(spacing: 6) {
                     AppIconView(size: 14)
-                    Text("Clawdphobia")
+                    Text("Clawdephobia")
                         .font(.system(size: 14, weight: .semibold))
                 }
                 Spacer()

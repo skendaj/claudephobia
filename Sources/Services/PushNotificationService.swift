@@ -37,7 +37,7 @@ final class PushNotificationService {
         request.httpMethod = "POST"
         request.setValue(title, forHTTPHeaderField: "Title")
         request.setValue(String(min(max(priority, 1), 5)), forHTTPHeaderField: "Priority")
-        request.setValue("clawdphobia", forHTTPHeaderField: "Tags")
+        request.setValue("clawdephobia", forHTTPHeaderField: "Tags")
         request.httpBody = body.data(using: .utf8)
 
         session.dataTask(with: request) { _, response, error in
@@ -52,7 +52,7 @@ final class PushNotificationService {
     /// Send a test notification to verify the topic works.
     func sendTest(topic: String, serverURL: String = "https://ntfy.sh") {
         send(
-            title: "Clawdphobia — Test",
+            title: "Clawdephobia — Test",
             body: "Phone notifications are working! 🎉",
             topic: topic,
             serverURL: serverURL,

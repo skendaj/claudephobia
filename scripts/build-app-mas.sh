@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_NAME="Clawdphobia"
+APP_NAME="Clawdephobia"
 BUILD_DIR=".build/release"
 APP_BUNDLE="dist/${APP_NAME}.app"
 CONTENTS="${APP_BUNDLE}/Contents"
@@ -60,7 +60,7 @@ echo "Quarantine attributes stripped."
 
 # Code sign with Mac App Store certificate + sandbox entitlements
 echo "Signing with: ${APP_SIGNING_IDENTITY}"
-codesign --force --options runtime --entitlements Resources/Clawdphobia-MAS.entitlements --sign "${APP_SIGNING_IDENTITY}" "${APP_BUNDLE}"
+codesign --force --options runtime --entitlements Resources/Clawdephobia-MAS.entitlements --sign "${APP_SIGNING_IDENTITY}" "${APP_BUNDLE}"
 echo "Signed."
 
 # Verify signature
