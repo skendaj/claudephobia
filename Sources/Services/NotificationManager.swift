@@ -100,7 +100,7 @@ final class NotificationManager {
         sentKeys.insert("service-down")
         send(
             title: "Clawdphobia \u{2014} Service Down",
-            body: "Claude appears to be unreachable. Usage data may be stale."
+            body: "Clawd appears to be unreachable. Usage data may be stale."
         )
     }
 

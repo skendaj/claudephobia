@@ -54,7 +54,7 @@ enum MenuBarRenderer {
                         isServiceDown: Bool = false) -> String {
         var lines: [String] = []
         if isServiceDown {
-            lines.append("Claude service appears down")
+            lines.append("Clawd service appears down")
             lines.append("")
         }
         lines.append("5-hour session: \(pct(sessionPercent)) used")

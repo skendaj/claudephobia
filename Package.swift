@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "Claudephobia",
+    name: "Clawdphobia",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "Claudephobia",
+            name: "Clawdphobia",
             path: "Sources",
             resources: [
                 .copy("Resources/icon.png")

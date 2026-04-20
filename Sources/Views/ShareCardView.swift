@@ -21,7 +21,7 @@ struct ShareCardData {
 struct ShareCardView: View {
     let data: ShareCardData
 
-    // Claude product colors (flat, no gradients)
+    // Clawd product colors (flat, no gradients)
     private let bg = Color(red: 0.169, green: 0.161, blue: 0.149)            // #2B2926
     private let surface = Color(red: 0.200, green: 0.192, blue: 0.176)       // #333130
     private let terracotta = Color(red: 0.851, green: 0.467, blue: 0.341)    // #D97757
@@ -269,13 +269,13 @@ struct ShareCardView: View {
 
     private func tierName(_ tier: String) -> String {
         let lower = tier.lowercased()
-        if lower.contains("max_20x") || lower.contains("max20x") { return "Claude Max 20x" }
-        if lower.contains("max_5x") || lower.contains("max5x") { return "Claude Max 5x" }
-        if lower.contains("max") { return "Claude Max" }
-        if lower.contains("pro") { return "Claude Pro" }
-        if lower.contains("team") { return "Claude Team" }
-        if lower.contains("enterprise") { return "Claude Enterprise" }
-        if lower.contains("free") || lower.contains("default") { return "Claude Free" }
+        if lower.contains("max_20x") || lower.contains("max20x") { return "Clawd Max 20x" }
+        if lower.contains("max_5x") || lower.contains("max5x") { return "Clawd Max 5x" }
+        if lower.contains("max") { return "Clawd Max" }
+        if lower.contains("pro") { return "Clawd Pro" }
+        if lower.contains("team") { return "Clawd Team" }
+        if lower.contains("enterprise") { return "Clawd Enterprise" }
+        if lower.contains("free") || lower.contains("default") { return "Clawd Free" }
         return tier.replacingOccurrences(of: "_", with: " ").capitalized
     }
 
@@ -341,7 +341,7 @@ enum ShareCardRenderer {
 
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png]
-        panel.nameFieldStringValue = "claude-usage-\(dateStamp()).png"
+        panel.nameFieldStringValue = "clawd-usage-\(dateStamp()).png"
         panel.directoryURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
         panel.level = .floating
 

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Fetches Claude usage data via direct API calls.
+/// Fetches Clawd usage data via direct API calls.
 /// Uses /api/organizations to get the org ID, then /api/organizations/{id}/usage
 /// for utilization data and /api/organizations/{id}/rate_limits for tier info.
 final class UsageScraper {
@@ -17,7 +17,7 @@ final class UsageScraper {
 
     // MARK: - Public
 
-    func scrape() async throws -> ClaudeUsageData {
+    func scrape() async throws -> ClawdUsageData {
         let orgId: String
         if let cached = cachedOrgId {
             orgId = cached
@@ -33,7 +33,7 @@ final class UsageScraper {
         let usage = try await usageResult
         let tier = try? await tierResult
 
-        return ClaudeUsageData(
+        return ClawdUsageData(
             fiveHour: usage.fiveHour,
             sevenDay: usage.sevenDay,
             sevenDayOpus: usage.sevenDayOpus,
@@ -46,12 +46,12 @@ final class UsageScraper {
     }
 
     /// Retries scrape() on transient failures with exponential backoff.
-    func scrapeWithRetry(maxAttempts: Int = 3) async throws -> ClaudeUsageData {
+    func scrapeWithRetry(maxAttempts: Int = 3) async throws -> ClawdUsageData {
         var lastError: Error?
         for attempt in 0..<maxAttempts {
             do {
                 return try await scrape()
-            } catch let error as ClaudeAPIError where error.isRetryable {
+            } catch let error as ClawdAPIError where error.isRetryable {
                 lastError = error
                 if attempt < maxAttempts - 1 {
                     let delay = UInt64(pow(2.0, Double(attempt + 1))) * 1_000_000_000
@@ -70,37 +70,37 @@ final class UsageScraper {
         let (data, status) = try await apiGet(path: "/api/organizations")
 
         if status == 401 || status == 403 {
-            throw ClaudeAPIError.unauthorized
+            throw ClawdAPIError.unauthorized
         }
 
         guard let orgs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
               let firstOrg = orgs.first,
               let orgId = firstOrg["uuid"] as? String else {
-            throw ClaudeAPIError.invalidResponse("Could not parse organization ID")
+            throw ClawdAPIError.invalidResponse("Could not parse organization ID")
         }
 
         return orgId
     }
 
-    private func fetchUsage(orgId: String) async throws -> ClaudeUsageData {
+    private func fetchUsage(orgId: String) async throws -> ClawdUsageData {
         let (data, status) = try await apiGet(path: "/api/organizations/\(orgId)/usage")
 
         if status == 401 || status == 403 {
-            throw ClaudeAPIError.unauthorized
+            throw ClawdAPIError.unauthorized
         }
         if status == 429 {
-            throw ClaudeAPIError.rateLimited
+            throw ClawdAPIError.rateLimited
         }
         if status >= 500 {
-            throw ClaudeAPIError.serverError(status)
+            throw ClawdAPIError.serverError(status)
         }
 
         guard status == 200,
               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw ClaudeAPIError.invalidResponse("Usage endpoint returned status \(status)")
+            throw ClawdAPIError.invalidResponse("Usage endpoint returned status \(status)")
         }
 
-        return ClaudeUsageData(
+        return ClawdUsageData(
             fiveHour: parseLimit(dict["five_hour"]),
             sevenDay: parseLimit(dict["seven_day"]),
             sevenDayOpus: parseLimit(dict["seven_day_opus"]),
@@ -165,7 +165,7 @@ final class UsageScraper {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             return (data, status)
         } catch {
-            throw ClaudeAPIError.networkError(error)
+            throw ClawdAPIError.networkError(error)
         }
     }
 }

@@ -2,31 +2,34 @@ import Foundation
 import Security
 
 enum KeychainHelper {
-    private static let service = "com.claudephobia.app"
-    private static let legacyService = "com.claudemeter.app"
+    private static let service = "com.clawdphobia.app"
+    private static let legacyServices = ["com.claudephobia.app", "com.claudemeter.app"]
 
-    /// Migrate keys from old service name (one-time)
+    /// Migrate keys from old service names (one-time). Only writes if current service has no value.
     static func migrateFromLegacyService(key: String) {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: legacyService,
-            kSecAttrAccount as String: key,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data,
-              let value = String(data: data, encoding: .utf8) else { return }
+        if load(key: key) != nil { return }
+        for legacy in legacyServices {
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: legacy,
+                kSecAttrAccount as String: key,
+                kSecReturnData as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne,
+            ]
+            var result: AnyObject?
+            guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+                  let data = result as? Data,
+                  let value = String(data: data, encoding: .utf8) else { continue }
 
-        save(key: key, value: value)
-        // Delete from legacy service
-        let deleteQuery: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: legacyService,
-            kSecAttrAccount as String: key,
-        ]
-        SecItemDelete(deleteQuery as CFDictionary)
+            save(key: key, value: value)
+            let deleteQuery: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: legacy,
+                kSecAttrAccount as String: key,
+            ]
+            SecItemDelete(deleteQuery as CFDictionary)
+            return
+        }
     }
 
     static func save(key: String, value: String) {

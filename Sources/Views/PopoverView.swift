@@ -3,7 +3,7 @@ import SwiftUI
 extension Bundle {
     /// Safe accessor for SPM resource bundle — returns nil instead of fatalError
     static var safeModule: Bundle? = {
-        let bundleName = "Claudephobia_Claudephobia"
+        let bundleName = "Clawdphobia_Clawdphobia"
         let candidates = [
             Bundle.main.resourceURL,
             Bundle.main.bundleURL,
@@ -57,7 +57,7 @@ struct PopoverView: View {
             Text("Clawdphobia")
                 .font(.headline)
 
-            Text("Fear of hitting Claude limits")
+            Text("Fear of hitting Clawd limits")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .italic()
@@ -75,9 +75,9 @@ struct PopoverView: View {
                 Text("How to get it:")
                     .font(.caption2)
                     .fontWeight(.medium)
-                Text("1. Open claude.ai in your browser")
-                Text("2. DevTools (Cmd+Opt+I) \u{2192} Application")
-                Text("3. Cookies \u{2192} claude.ai \u{2192} sessionKey")
+                Text("1. Sign in to your account in a browser")
+                Text("2. DevTools (Cmd+Opt+I) \u{2192} Application \u{2192} Cookies")
+                Text("3. Copy the sessionKey value")
             }
             .font(.caption2)
             .foregroundColor(.secondary)
@@ -140,7 +140,7 @@ struct PopoverView: View {
         errorMessage = nil
         sessionKey = ""
 
-        let client = ClaudeAPIClient(sessionKey: key)
+        let client = ClawdAPIClient(sessionKey: key)
         Task { @MainActor in
             do {
                 _ = try await client.testConnection()
@@ -254,7 +254,7 @@ struct PopoverView: View {
                         .foregroundColor(.red)
                         .font(.system(size: 13))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Claude service appears down")
+                        Text("Clawd service appears down")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.red)
                         Text("Showing last known data. Retrying automatically.")
@@ -381,13 +381,13 @@ struct PopoverView: View {
 
     private func tierDisplayName(_ tier: String) -> String {
         let lower = tier.lowercased()
-        if lower.contains("max_20x") || lower.contains("max20x") { return "Claude Max 20x Plan" }
-        if lower.contains("max_5x") || lower.contains("max5x") { return "Claude Max 5x Plan" }
-        if lower.contains("max") { return "Claude Max Plan" }
-        if lower.contains("pro") { return "Claude Pro Plan" }
-        if lower.contains("team") { return "Claude Team Plan" }
-        if lower.contains("enterprise") { return "Claude Enterprise Plan" }
-        if lower.contains("free") || lower.contains("default") { return "Claude Free Plan" }
+        if lower.contains("max_20x") || lower.contains("max20x") { return "Clawd Max 20x Plan" }
+        if lower.contains("max_5x") || lower.contains("max5x") { return "Clawd Max 5x Plan" }
+        if lower.contains("max") { return "Clawd Max Plan" }
+        if lower.contains("pro") { return "Clawd Pro Plan" }
+        if lower.contains("team") { return "Clawd Team Plan" }
+        if lower.contains("enterprise") { return "Clawd Enterprise Plan" }
+        if lower.contains("free") || lower.contains("default") { return "Clawd Free Plan" }
         // Fallback: clean up the raw string
         return tier.replacingOccurrences(of: "_", with: " ").capitalized + " Plan"
     }

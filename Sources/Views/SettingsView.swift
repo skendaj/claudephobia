@@ -36,7 +36,7 @@ struct SettingsView: View {
             VStack(spacing: 2) {
                 AppIconView(size: 52)
 
-                Text("Fear of hitting Claude limits")
+                Text("Fear of hitting Clawd limits")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .italic()
@@ -373,7 +373,7 @@ struct SettingsView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Label("Install the ntfy app (App Store or Google Play)", systemImage: "1.circle")
-                        Label("Subscribe to a unique topic (e.g. claudephobia-yourname)", systemImage: "2.circle")
+                        Label("Subscribe to a unique topic (e.g. clawdphobia-yourname)", systemImage: "2.circle")
                         Label("Enter that same topic below", systemImage: "3.circle")
                     }
                     .font(.caption)
@@ -387,7 +387,7 @@ struct SettingsView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
 
-                    TextField("e.g. claudephobia-yourname123", text: Binding(
+                    TextField("e.g. clawdphobia-yourname123", text: Binding(
                         get: { viewModel.pushTopic },
                         set: { viewModel.setPushTopic($0) }
                     ))
@@ -495,7 +495,7 @@ struct SettingsView: View {
     private var aboutTab: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Clawdphobia reads your usage data directly from the Claude API using your session cookie. No data is sent to any third party. No cost involved.")
+                Text("Clawdphobia reads your usage data directly from the Clawd API using your session cookie. No data is sent to any third party. No cost involved.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

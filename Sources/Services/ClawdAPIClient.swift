@@ -1,6 +1,6 @@
 import Foundation
 
-enum ClaudeAPIError: LocalizedError {
+enum ClawdAPIError: LocalizedError {
     case unauthorized
     case invalidResponse(String)
     case networkError(Error)
@@ -12,8 +12,8 @@ enum ClaudeAPIError: LocalizedError {
         case .unauthorized: return "Session expired. Update your session key."
         case .invalidResponse(let detail): return "Unexpected response: \(detail)"
         case .networkError(let err): return err.localizedDescription
-        case .rateLimited: return "Rate limited by Claude. Will retry shortly."
-        case .serverError(let code): return "Claude server error (\(code)). Will retry shortly."
+        case .rateLimited: return "Rate limited by Clawd. Will retry shortly."
+        case .serverError(let code): return "Clawd server error (\(code)). Will retry shortly."
         }
     }
 
@@ -31,7 +31,7 @@ struct RateLimitInfo {
     let resetsAt: Date
 }
 
-struct ClaudeUsageData {
+struct ClawdUsageData {
     let fiveHour: RateLimitInfo?
     let sevenDay: RateLimitInfo?
     let sevenDayOpus: RateLimitInfo?
@@ -43,7 +43,7 @@ struct ClaudeUsageData {
 }
 
 /// Lightweight client used only for validating session keys via /api/organizations.
-final class ClaudeAPIClient {
+final class ClawdAPIClient {
     private let baseURL = "https://claude.ai"
     private var sessionKey: String
 
@@ -68,18 +68,18 @@ final class ClaudeAPIClient {
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch {
-            throw ClaudeAPIError.networkError(error)
+            throw ClawdAPIError.networkError(error)
         }
 
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 || status == 403 {
-            throw ClaudeAPIError.unauthorized
+            throw ClawdAPIError.unauthorized
         }
 
         guard let orgs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
               let firstOrg = orgs.first,
               let orgId = firstOrg["uuid"] as? String else {
-            throw ClaudeAPIError.invalidResponse("Could not parse organization ID")
+            throw ClawdAPIError.invalidResponse("Could not parse organization ID")
         }
 
         return orgId

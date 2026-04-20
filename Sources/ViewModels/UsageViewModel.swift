@@ -56,10 +56,10 @@ final class UsageViewModel: ObservableObject {
     @Published var errorMessage: String? = nil
     @Published var isLoading: Bool = false
 
-    /// True when using Claude faster than sustainable for the current window
+    /// True when using Clawd faster than sustainable for the current window
     @Published var isPacingWarning: Bool = false
 
-    /// True when Claude's service appears to be down (consecutive server/network failures)
+    /// True when Clawd's service appears to be down (consecutive server/network failures)
     @Published var isServiceDown: Bool = false
 
     /// Refresh interval in seconds (60, 300, 600)
@@ -84,7 +84,7 @@ final class UsageViewModel: ObservableObject {
     // MARK: - Services
 
     private var scraper: UsageScraper?
-    private var apiClient: ClaudeAPIClient?
+    private var apiClient: ClawdAPIClient?
     private let notificationManager = NotificationManager()
     private var refreshTimer: Timer?
     private var countdownTimer: Timer?
@@ -108,7 +108,7 @@ final class UsageViewModel: ObservableObject {
     private let serviceDownThreshold = 3
 
     /// Stores the last fetched raw data for JSON export
-    private var lastUsageData: ClaudeUsageData?
+    private var lastUsageData: ClawdUsageData?
 
     // MARK: - Init
 
@@ -121,7 +121,7 @@ final class UsageViewModel: ObservableObject {
         loadSettings()
         if isSetupComplete, let key = storedSessionKey {
             scraper = UsageScraper(sessionKey: key)
-            apiClient = ClaudeAPIClient(sessionKey: key)
+            apiClient = ClawdAPIClient(sessionKey: key)
             startAutoRefresh()
             fetchUsage()
         }
@@ -134,8 +134,8 @@ final class UsageViewModel: ObservableObject {
     func completeSetup(sessionKey: String) {
         storeSessionKey(sessionKey)
         scraper = UsageScraper(sessionKey: sessionKey)
-        apiClient = ClaudeAPIClient(sessionKey: sessionKey)
-        UserDefaults.standard.set(true, forKey: "claudephobia.setup_complete")
+        apiClient = ClawdAPIClient(sessionKey: sessionKey)
+        UserDefaults.standard.set(true, forKey: "clawdphobia.setup_complete")
         isSetupComplete = true
         startAutoRefresh()
         fetchUsage()
@@ -181,12 +181,12 @@ final class UsageViewModel: ObservableObject {
         isPacingWarning = false
         isServiceDown = false
         consecutiveFailures = 0
-        UserDefaults.standard.set(false, forKey: "claudephobia.setup_complete")
+        UserDefaults.standard.set(false, forKey: "clawdphobia.setup_complete")
         isSetupComplete = false
     }
 
     func testConnection(sessionKey: String) async throws {
-        let client = ClaudeAPIClient(sessionKey: sessionKey)
+        let client = ClawdAPIClient(sessionKey: sessionKey)
         _ = try await client.testConnection()
     }
 
@@ -196,7 +196,7 @@ final class UsageViewModel: ObservableObject {
 //    func debugToggleServiceDown() {
 //        isServiceDown.toggle()
 //        if isServiceDown {
-//            errorMessage = "Claude appears to be down. Retrying automatically..."
+//            errorMessage = "Clawd appears to be down. Retrying automatically..."
 //        } else {
 //            errorMessage = nil
 //        }
@@ -243,22 +243,22 @@ final class UsageViewModel: ObservableObject {
 
                 // Adaptive polling: increase frequency when usage is high
                 adjustRefreshRate()
-            } catch ClaudeAPIError.rateLimited {
-                errorMessage = ClaudeAPIError.rateLimited.localizedDescription
+            } catch ClawdAPIError.rateLimited {
+                errorMessage = ClawdAPIError.rateLimited.localizedDescription
                 consecutiveFailures += 1
                 updateServiceDownStatus()
                 // Back off for 60s on rate limit
                 rescheduleRefresh(interval: 60)
-            } catch ClaudeAPIError.unauthorized {
+            } catch ClawdAPIError.unauthorized {
                 // Auth errors are not service outages — reset counter
                 consecutiveFailures = 0
                 isServiceDown = false
-                errorMessage = ClaudeAPIError.unauthorized.localizedDescription
+                errorMessage = ClawdAPIError.unauthorized.localizedDescription
             } catch {
                 consecutiveFailures += 1
                 updateServiceDownStatus()
                 errorMessage = isServiceDown
-                    ? "Claude appears to be down. Retrying automatically..."
+                    ? "Clawd appears to be down. Retrying automatically..."
                     : error.localizedDescription
             }
             isLoading = false
@@ -277,22 +277,22 @@ final class UsageViewModel: ObservableObject {
 
     func setMenuBarDisplayMode(_ mode: Int) {
         menuBarDisplayMode = mode
-        UserDefaults.standard.set(mode, forKey: "claudephobia.menu_bar_display")
+        UserDefaults.standard.set(mode, forKey: "clawdphobia.menu_bar_display")
     }
 
     func setMenuBarProgressStyle(_ style: Int) {
         menuBarProgressStyle = style
-        UserDefaults.standard.set(style, forKey: "claudephobia.menubar_progress_style")
+        UserDefaults.standard.set(style, forKey: "clawdphobia.menubar_progress_style")
     }
 
     func setViewProgressStyle(_ style: Int) {
         viewProgressStyle = style
-        UserDefaults.standard.set(style, forKey: "claudephobia.view_progress_style")
+        UserDefaults.standard.set(style, forKey: "clawdphobia.view_progress_style")
     }
 
     func toggleNotifications() {
         notificationsEnabled.toggle()
-        UserDefaults.standard.set(notificationsEnabled, forKey: "claudephobia.notifications_enabled")
+        UserDefaults.standard.set(notificationsEnabled, forKey: "clawdphobia.notifications_enabled")
         if !notificationsEnabled {
             notificationManager.reset()
         }
@@ -300,42 +300,42 @@ final class UsageViewModel: ObservableObject {
 
     func setRefreshInterval(_ seconds: Int) {
         refreshInterval = seconds
-        UserDefaults.standard.set(seconds, forKey: "claudephobia.refresh_interval")
+        UserDefaults.standard.set(seconds, forKey: "clawdphobia.refresh_interval")
         startAutoRefresh()
     }
 
     func setWarningThreshold(_ value: Double) {
         warningThreshold = value
-        UserDefaults.standard.set(value, forKey: "claudephobia.warning_threshold")
+        UserDefaults.standard.set(value, forKey: "clawdphobia.warning_threshold")
         notificationManager.reset()
     }
 
     func setCriticalThreshold(_ value: Double) {
         criticalThreshold = value
-        UserDefaults.standard.set(value, forKey: "claudephobia.critical_threshold")
+        UserDefaults.standard.set(value, forKey: "clawdphobia.critical_threshold")
         notificationManager.reset()
     }
 
     func toggleNotifyOnReset() {
         notifyOnReset.toggle()
-        UserDefaults.standard.set(notifyOnReset, forKey: "claudephobia.notify_on_reset")
+        UserDefaults.standard.set(notifyOnReset, forKey: "clawdphobia.notify_on_reset")
     }
 
     func togglePushNotifications() {
         pushNotificationsEnabled.toggle()
-        UserDefaults.standard.set(pushNotificationsEnabled, forKey: "claudephobia.push_enabled")
+        UserDefaults.standard.set(pushNotificationsEnabled, forKey: "clawdphobia.push_enabled")
         syncPushSettings()
     }
 
     func setPushTopic(_ topic: String) {
         pushTopic = topic
-        UserDefaults.standard.set(topic, forKey: "claudephobia.push_topic")
+        UserDefaults.standard.set(topic, forKey: "clawdphobia.push_topic")
         syncPushSettings()
     }
 
     func setPushServerURL(_ url: String) {
         pushServerURL = url
-        UserDefaults.standard.set(url, forKey: "claudephobia.push_server_url")
+        UserDefaults.standard.set(url, forKey: "clawdphobia.push_server_url")
         syncPushSettings()
     }
 
@@ -364,7 +364,7 @@ final class UsageViewModel: ObservableObject {
             print("Failed to toggle login item: \(error)")
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
-        UserDefaults.standard.set(launchAtLogin, forKey: "claudephobia.launch_at_login")
+        UserDefaults.standard.set(launchAtLogin, forKey: "clawdphobia.launch_at_login")
     }
 
     // MARK: - JSON Export
@@ -409,7 +409,7 @@ final class UsageViewModel: ObservableObject {
     func exportToFile() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "claudephobia-usage-\(dateStamp()).json"
+        panel.nameFieldStringValue = "clawdphobia-usage-\(dateStamp()).json"
         panel.directoryURL = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
         panel.level = .floating
 
@@ -420,14 +420,14 @@ final class UsageViewModel: ObservableObject {
 
     func resetAllData() {
         let keys = [
-            "claudephobia.setup_complete", "claudephobia.menu_bar_display",
-            "claudephobia.icon_style",
-            "claudephobia.notifications_enabled", "claudephobia.refresh_interval",
-            "claudephobia.warning_threshold", "claudephobia.critical_threshold",
-            "claudephobia.launch_at_login",
-            "claudephobia.notify_on_reset",
-            "claudephobia.push_enabled", "claudephobia.push_topic",
-            "claudephobia.push_server_url",
+            "clawdphobia.setup_complete", "clawdphobia.menu_bar_display",
+            "clawdphobia.icon_style",
+            "clawdphobia.notifications_enabled", "clawdphobia.refresh_interval",
+            "clawdphobia.warning_threshold", "clawdphobia.critical_threshold",
+            "clawdphobia.launch_at_login",
+            "clawdphobia.notify_on_reset",
+            "clawdphobia.push_enabled", "clawdphobia.push_topic",
+            "clawdphobia.push_server_url",
             // Legacy keys
             "claudemeter.setup_complete", "claudemeter.menu_bar_display",
             "claudemeter.notifications_enabled", "claudemeter.session_key",
@@ -474,7 +474,7 @@ final class UsageViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private func applyUsageData(_ data: ClaudeUsageData) {
+    private func applyUsageData(_ data: ClawdUsageData) {
         // Helper: only assign if value actually changed (reduces SwiftUI churn)
         func updateIfNeeded<T: Equatable>(_ property: inout T, _ newValue: T) {
             if property != newValue { property = newValue }
@@ -586,7 +586,7 @@ final class UsageViewModel: ObservableObject {
     }
 
     /// Returns true if the 5-hour session usage rate projects to exceed 100% before reset.
-    private func calculatePacingWarning(_ data: ClaudeUsageData) -> Bool {
+    private func calculatePacingWarning(_ data: ClawdUsageData) -> Bool {
         guard let session = data.fiveHour else { return false }
         let windowDuration: TimeInterval = 5 * 3600
         let windowStart = session.resetsAt.addingTimeInterval(-windowDuration)
@@ -723,31 +723,31 @@ final class UsageViewModel: ObservableObject {
             }
             self.wasNetworkUnsatisfied = !isSatisfied
         }
-        monitor.start(queue: DispatchQueue(label: "com.claudephobia.network"))
+        monitor.start(queue: DispatchQueue(label: "com.clawdphobia.network"))
         networkMonitor = monitor
     }
 
     private func loadSettings() {
-        isSetupComplete = UserDefaults.standard.bool(forKey: "claudephobia.setup_complete")
-        notificationsEnabled = UserDefaults.standard.object(forKey: "claudephobia.notifications_enabled") as? Bool ?? true
-        menuBarDisplayMode = UserDefaults.standard.integer(forKey: "claudephobia.menu_bar_display")
-        menuBarProgressStyle = UserDefaults.standard.integer(forKey: "claudephobia.menubar_progress_style")
-        viewProgressStyle = UserDefaults.standard.integer(forKey: "claudephobia.view_progress_style")
-        refreshInterval = UserDefaults.standard.object(forKey: "claudephobia.refresh_interval") as? Int ?? 300
-        warningThreshold = UserDefaults.standard.object(forKey: "claudephobia.warning_threshold") as? Double ?? 0.75
-        criticalThreshold = UserDefaults.standard.object(forKey: "claudephobia.critical_threshold") as? Double ?? 0.90
+        isSetupComplete = UserDefaults.standard.bool(forKey: "clawdphobia.setup_complete")
+        notificationsEnabled = UserDefaults.standard.object(forKey: "clawdphobia.notifications_enabled") as? Bool ?? true
+        menuBarDisplayMode = UserDefaults.standard.integer(forKey: "clawdphobia.menu_bar_display")
+        menuBarProgressStyle = UserDefaults.standard.integer(forKey: "clawdphobia.menubar_progress_style")
+        viewProgressStyle = UserDefaults.standard.integer(forKey: "clawdphobia.view_progress_style")
+        refreshInterval = UserDefaults.standard.object(forKey: "clawdphobia.refresh_interval") as? Int ?? 300
+        warningThreshold = UserDefaults.standard.object(forKey: "clawdphobia.warning_threshold") as? Double ?? 0.75
+        criticalThreshold = UserDefaults.standard.object(forKey: "clawdphobia.critical_threshold") as? Double ?? 0.90
         launchAtLogin = SMAppService.mainApp.status == .enabled
-        notifyOnReset = UserDefaults.standard.object(forKey: "claudephobia.notify_on_reset") as? Bool ?? true
-        pushNotificationsEnabled = UserDefaults.standard.bool(forKey: "claudephobia.push_enabled")
-        pushTopic = UserDefaults.standard.string(forKey: "claudephobia.push_topic") ?? ""
-        pushServerURL = UserDefaults.standard.string(forKey: "claudephobia.push_server_url") ?? "https://ntfy.sh"
+        notifyOnReset = UserDefaults.standard.object(forKey: "clawdphobia.notify_on_reset") as? Bool ?? true
+        pushNotificationsEnabled = UserDefaults.standard.bool(forKey: "clawdphobia.push_enabled")
+        pushTopic = UserDefaults.standard.string(forKey: "clawdphobia.push_topic") ?? ""
+        pushServerURL = UserDefaults.standard.string(forKey: "clawdphobia.push_server_url") ?? "https://ntfy.sh"
         syncPushSettings()
     }
 
     // MARK: - Version Reset
 
     private func resetIfNewVersion() {
-        let key = "claudephobia.data_schema_version"
+        let key = "clawdphobia.data_schema_version"
         let stored = UserDefaults.standard.integer(forKey: key)
         guard stored < Self.dataSchemaVersion else { return }
 
@@ -756,20 +756,20 @@ final class UsageViewModel: ObservableObject {
 
         // Wipe all UserDefaults
         let allKeys = [
-            "claudephobia.setup_complete", "claudephobia.menu_bar_display",
-            "claudephobia.icon_style",
-            "claudephobia.notifications_enabled", "claudephobia.refresh_interval",
-            "claudephobia.warning_threshold", "claudephobia.critical_threshold",
-            "claudephobia.launch_at_login", "claudephobia.notify_on_reset",
-            "claudephobia.push_enabled", "claudephobia.push_topic",
-            "claudephobia.push_server_url",
+            "clawdphobia.setup_complete", "clawdphobia.menu_bar_display",
+            "clawdphobia.icon_style",
+            "clawdphobia.notifications_enabled", "clawdphobia.refresh_interval",
+            "clawdphobia.warning_threshold", "clawdphobia.critical_threshold",
+            "clawdphobia.launch_at_login", "clawdphobia.notify_on_reset",
+            "clawdphobia.push_enabled", "clawdphobia.push_topic",
+            "clawdphobia.push_server_url",
         ]
         allKeys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
 
         // Restore session key and mark setup complete if we had one
         if let savedKey = savedKey {
             storeSessionKey(savedKey)
-            UserDefaults.standard.set(true, forKey: "claudephobia.setup_complete")
+            UserDefaults.standard.set(true, forKey: "clawdphobia.setup_complete")
         }
 
         UserDefaults.standard.set(Self.dataSchemaVersion, forKey: key)
@@ -780,11 +780,22 @@ final class UsageViewModel: ObservableObject {
     private func migrateAll() {
         KeychainHelper.migrateFromLegacyService(key: "session_key")
 
-        let migrations: [(old: String, new: String)] = [
-            ("claudemeter.setup_complete", "claudephobia.setup_complete"),
-            ("claudemeter.menu_bar_display", "claudephobia.menu_bar_display"),
-            ("claudemeter.notifications_enabled", "claudephobia.notifications_enabled"),
+        let suffixes = [
+            "setup_complete", "menu_bar_display", "menubar_progress_style",
+            "view_progress_style", "icon_style",
+            "notifications_enabled", "refresh_interval",
+            "warning_threshold", "critical_threshold", "notify_on_reset",
+            "push_enabled", "push_topic", "push_server_url",
+            "launch_at_login", "data_schema_version",
         ]
+        var migrations: [(old: String, new: String)] = [
+            ("claudemeter.setup_complete", "clawdphobia.setup_complete"),
+            ("claudemeter.menu_bar_display", "clawdphobia.menu_bar_display"),
+            ("claudemeter.notifications_enabled", "clawdphobia.notifications_enabled"),
+        ]
+        for suffix in suffixes {
+            migrations.append(("claudephobia.\(suffix)", "clawdphobia.\(suffix)"))
+        }
         for m in migrations {
             if let val = UserDefaults.standard.object(forKey: m.old) {
                 if UserDefaults.standard.object(forKey: m.new) == nil {
@@ -794,9 +805,11 @@ final class UsageViewModel: ObservableObject {
             }
         }
 
-        if let legacyKey = UserDefaults.standard.string(forKey: "claudemeter.session_key") {
-            KeychainHelper.save(key: "session_key", value: legacyKey)
-            UserDefaults.standard.removeObject(forKey: "claudemeter.session_key")
+        for legacyKey in ["claudemeter.session_key", "claudephobia.session_key"] {
+            if let legacyValue = UserDefaults.standard.string(forKey: legacyKey) {
+                KeychainHelper.save(key: "session_key", value: legacyValue)
+                UserDefaults.standard.removeObject(forKey: legacyKey)
+            }
         }
 
         removeLegacyLaunchAgent()
@@ -816,9 +829,9 @@ final class UsageViewModel: ObservableObject {
         return f.string(from: Date())
     }
 
-    private func makeDemoData() -> ClaudeUsageData {
+    private func makeDemoData() -> ClawdUsageData {
         let now = Date()
-        return ClaudeUsageData(
+        return ClawdUsageData(
             fiveHour:          RateLimitInfo(percentUsed: 0.72, resetsAt: now.addingTimeInterval(3600 * 2.5)),
             sevenDay:          RateLimitInfo(percentUsed: 0.45, resetsAt: now.addingTimeInterval(3600 * 52)),
             sevenDayOpus:      RateLimitInfo(percentUsed: 0.61, resetsAt: now.addingTimeInterval(3600 * 52)),
@@ -835,8 +848,10 @@ final class UsageViewModel: ObservableObject {
     private func removeLegacyLaunchAgent() {
         // Skip in sandboxed builds — ~/Library/LaunchAgents is inaccessible
         guard !ProcessInfo.processInfo.environment.keys.contains("APP_SANDBOX_CONTAINER_ID") else { return }
-        let path = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/LaunchAgents/com.claudephobia.app.plist").path
-        try? FileManager.default.removeItem(atPath: path)
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents")
+        for name in ["com.claudephobia.app.plist", "com.claudemeter.app.plist"] {
+            try? FileManager.default.removeItem(atPath: dir.appendingPathComponent(name).path)
+        }
     }
 }
