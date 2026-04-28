@@ -66,6 +66,10 @@ final class UsageViewModel: ObservableObject {
     /// True when Clawd's service appears to be down (consecutive server/network failures)
     @Published var isServiceDown: Bool = false
 
+    /// Non-nil when a newer GitHub release is available and not yet dismissed
+    @Published var updateAvailableVersion: String? = nil
+    @Published var updateReleaseURL: String = ""
+
     /// Refresh interval in seconds (60, 300, 600)
     @Published var refreshInterval: Int = 300
 
@@ -90,6 +94,7 @@ final class UsageViewModel: ObservableObject {
     private var scraper: UsageScraper?
     private var apiClient: ClawdAPIClient?
     private let notificationManager = NotificationManager()
+    private let updateChecker = UpdateChecker()
     private var refreshTimer: Timer?
     private var countdownTimer: Timer?
     private var networkMonitor: NWPathMonitor?
@@ -132,6 +137,7 @@ final class UsageViewModel: ObservableObject {
         }
         startCountdownTimer()
         observeSystemEvents()
+        Task { await checkForUpdate() }
     }
 
     // MARK: - Setup
@@ -250,6 +256,7 @@ final class UsageViewModel: ObservableObject {
 
                 // Adaptive polling: increase frequency when usage is high
                 adjustRefreshRate()
+                await checkForUpdate()
             } catch ClawdAPIError.rateLimited {
                 errorMessage = ClawdAPIError.rateLimited.localizedDescription
                 consecutiveFailures += 1
@@ -278,6 +285,28 @@ final class UsageViewModel: ObservableObject {
             return
         }
         fetchUsage()
+    }
+
+    // MARK: - Update Check
+
+    func checkForUpdate() async {
+        guard let result = await updateChecker.check() else { return }
+        let dismissed = UserDefaults.standard.string(forKey: "clawdephobia.dismissed_update_version") ?? ""
+        guard result.version != dismissed else { return }
+        await MainActor.run {
+            updateAvailableVersion = result.version
+            updateReleaseURL = result.releaseURL
+        }
+        notificationManager.sendLocal(
+            title: "Clawdephobia update available",
+            body: "Version \(result.version) is out — open the app to download"
+        )
+    }
+
+    func dismissUpdate() {
+        guard let version = updateAvailableVersion else { return }
+        UserDefaults.standard.set(version, forKey: "clawdephobia.dismissed_update_version")
+        updateAvailableVersion = nil
     }
 
     // MARK: - Settings Actions

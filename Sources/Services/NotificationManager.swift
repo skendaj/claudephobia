@@ -130,7 +130,7 @@ final class NotificationManager {
         }
     }
 
-    private func sendLocal(title: String, body: String) {
+    func sendLocal(title: String, body: String) {
         if hasBundle {
             let content = UNMutableNotificationContent()
             content.title = title

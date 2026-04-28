@@ -257,6 +257,40 @@ struct PopoverView: View {
 
             Divider().padding(.vertical, 6)
 
+            // Update available banner
+            if let version = viewModel.updateAvailableVersion {
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 13))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Version \(version) available")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.blue)
+                        Button("Download →") {
+                            if let url = URL(string: viewModel.updateReleaseURL) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11))
+                        .foregroundColor(.blue.opacity(0.8))
+                    }
+                    Spacer()
+                    Button("Dismiss") {
+                        viewModel.dismissUpdate()
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.blue.opacity(0.08))
+                .cornerRadius(6)
+                .padding(.bottom, 8)
+            }
+
             // Service down banner
             if viewModel.isServiceDown {
                 HStack(spacing: 6) {
