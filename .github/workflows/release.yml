@@ -74,16 +74,53 @@ jobs:
         timeout-minutes: 30
         run: |
           VERSION="${GITHUB_REF_NAME}"
-          
-          # Create DMG with "drag to Applications" view
-          hdiutil create -volname "Clawdephobia" -srcfolder Clawdephobia.app -ov -format UDZO "Clawdephobia-${VERSION}.dmg"
+
+          # Stage DMG contents: app + Applications symlink for drag-to-install UI
+          DMG_STAGING=$(mktemp -d)
+          cp -r Clawdephobia.app "$DMG_STAGING/"
+          ln -s /Applications "$DMG_STAGING/Applications"
+
+          # Create read-write DMG, configure Finder layout, compress to final DMG
+          hdiutil create \
+            -srcfolder "$DMG_STAGING" \
+            -volname "Clawdephobia" \
+            -fs HFS+ \
+            -format UDRW \
+            -size 200m \
+            "Clawdephobia-rw.dmg"
+
+          DEVICE=$(hdiutil attach -readwrite -noverify "Clawdephobia-rw.dmg" | grep "Apple_HFS" | awk '{print $1}')
+          sleep 2
+
+          osascript <<'APPLESCRIPT' || true
+tell application "Finder"
+  tell disk "Clawdephobia"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set bounds of container window to {200, 150, 740, 470}
+    set icon size of the icon view options of container window to 80
+    set arrangement of the icon view options of container window to not arranged
+    set position of item "Clawdephobia.app" of container window to {130, 175}
+    set position of item "Applications" of container window to {410, 175}
+    close
+    open
+    update without registering applications
+    delay 2
+  end tell
+end tell
+APPLESCRIPT
+
+          hdiutil detach "$DEVICE"
+          hdiutil convert "Clawdephobia-rw.dmg" \
+            -format UDZO \
+            -imagekey zlib-level=9 \
+            -o "Clawdephobia-${VERSION}.dmg"
+          rm "Clawdephobia-rw.dmg"
+          rm -rf "$DMG_STAGING"
 
           echo "DMG_NAME=Clawdephobia-${VERSION}.dmg" >> "$GITHUB_ENV"
-
-          # Also create ZIP for backup
-          zip -r "Clawdephobia-${VERSION}.zip" Clawdephobia.app
-
-          echo "ZIP_NAME=Clawdephobia-${VERSION}.zip" >> "$GITHUB_ENV"
 
           # Submit DMG for notarization
           SUBMIT_OUTPUT=$(xcrun notarytool submit "Clawdephobia-${VERSION}.dmg" \
@@ -120,8 +157,45 @@ jobs:
 
             if [ "$STATUS" = "Accepted" ]; then
               xcrun stapler staple Clawdephobia.app
-              # Re-create DMG after stapling
-              hdiutil create -volname "Clawdephobia" -srcfolder Clawdephobia.app -ov -format UDZO "Clawdephobia-${VERSION}.dmg"
+              # Re-create DMG after stapling so the ticket is embedded
+              DMG_STAGING2=$(mktemp -d)
+              cp -r Clawdephobia.app "$DMG_STAGING2/"
+              ln -s /Applications "$DMG_STAGING2/Applications"
+              hdiutil create \
+                -srcfolder "$DMG_STAGING2" \
+                -volname "Clawdephobia" \
+                -fs HFS+ \
+                -format UDRW \
+                -size 200m \
+                "Clawdephobia-rw2.dmg"
+              DEVICE2=$(hdiutil attach -readwrite -noverify "Clawdephobia-rw2.dmg" | grep "Apple_HFS" | awk '{print $1}')
+              sleep 2
+              osascript <<'APPLESCRIPT' || true
+tell application "Finder"
+  tell disk "Clawdephobia"
+    open
+    set current view of container window to icon view
+    set toolbar visible of container window to false
+    set statusbar visible of container window to false
+    set bounds of container window to {200, 150, 740, 470}
+    set icon size of the icon view options of container window to 80
+    set arrangement of the icon view options of container window to not arranged
+    set position of item "Clawdephobia.app" of container window to {130, 175}
+    set position of item "Applications" of container window to {410, 175}
+    close
+    open
+    update without registering applications
+    delay 2
+  end tell
+end tell
+APPLESCRIPT
+              hdiutil detach "$DEVICE2"
+              hdiutil convert "Clawdephobia-rw2.dmg" \
+                -format UDZO \
+                -imagekey zlib-level=9 \
+                -o "Clawdephobia-${VERSION}.dmg"
+              rm "Clawdephobia-rw2.dmg"
+              rm -rf "$DMG_STAGING2"
               echo "NOTARIZED=true" >> "$GITHUB_ENV"
             else
               echo "::error::Notarization rejected. Fetching log..."
