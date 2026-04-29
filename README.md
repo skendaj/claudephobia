@@ -20,7 +20,7 @@ Clawdephobia uses your Claude session cookie to read usage data directly from th
 
 - **5-hour session limit** — the rolling short-term rate limit
 - **7-day weekly limit** — the rolling long-term rate limit
-- **Model-specific limits** — Opus, Sonnet, OAuth Apps, and Cowork weekly limits (when available)
+- **Model-specific limits** — Opus, Sonnet, Claude Design, OAuth Apps, and Cowork weekly limits (when available)
 - **Extra usage** — additional usage beyond your plan (when applicable)
 - **Pacing indicator** — warns if you're burning through your session limit too fast
 
@@ -36,6 +36,8 @@ No data is sent to any third party. Everything runs locally on your Mac.
 The key looks like `sk-ant-sid01-...`. Paste it into clawdephobia when prompted.
 
 > Your session key is stored in the macOS Keychain and never leaves your machine.
+
+> **No session key?** Hit **Try Demo Mode** on the setup screen to explore the app with realistic mock data — no account required.
 
 ## Install
 
@@ -74,7 +76,8 @@ You can also open `Package.swift` in Xcode and hit Run (`Cmd + R`).
 
 - Dual progress bars showing session (top) and weekly (bottom) usage
 - Color-coded status dot — green (normal), orange (>70%), red (>90%), grey (service down)
-- Optional percentage text next to the icon (three display modes)
+- Optional percentage text next to the icon (three display modes: icon only, icon + percentages, icon + compact)
+- Configurable progress style — bars or circular indicators, set independently for the menu bar icon and the popover content view
 - Flame icon when pacing is unsustainable
 - Cloud icon when Claude's service is unreachable
 - Tooltip with usage percentages and reset countdowns
@@ -108,7 +111,7 @@ Native macOS notifications with sound and app icon for:
 
 - **Warning** — when usage crosses a configurable threshold (75%, 80%, or 90%)
 - **Critical** — when usage hits critical levels (90%, 95%, or 100%)
-- **Restored** — when a rate limit window resets and usage drops back down
+- **Restored** — when a rate limit window resets and usage drops below 5% (only fires if it was previously above 20%)
 - **Service Down** — when Claude becomes unreachable (fires once per incident)
 
 Notifications are stateful — they fire once per threshold crossing and reset when usage drops.
@@ -146,21 +149,26 @@ clawdephobia detects when Claude's service is unavailable:
 - **Auto-refreshes on system wake** and **network reconnection**
 - **Popover-triggered refresh** with 30-second cooldown to prevent hammering
 - **Retry with exponential backoff** on transient failures (up to 3 attempts)
+- **Rate limit backoff** — HTTP 429 responses reschedule the next fetch to 60 seconds
 
 ### Settings
 
 Six-tab settings window:
 
-- **General** — text display mode (icon only / icon + percentages / icon + compact), auto-refresh interval, launch at login
+- **General** — text display mode, progress style (bars/circles), auto-refresh interval, launch at login
 - **Notifications** — enable/disable, warning and critical thresholds, monitored limits list, reset notifications toggle, test notification button
 - **Phone** — enable phone push notifications via ntfy.sh, topic and server URL configuration, test button
 - **Account** — update your session key (stored securely in Keychain)
-- **Data** — export usage as JSON, reset all data (clears Keychain, UserDefaults, LaunchAgent)
+- **Data** — export usage as JSON, reset all data (clears Keychain, UserDefaults, launch-at-login registration)
 - **About** — privacy statement, open-source info, author credit
+
+### Automatic Update Checks
+
+Clawdephobia silently checks GitHub for new releases every 6 hours. When a newer version is available, a banner appears in the popover with a link to the release. You can dismiss it per-version — it won't reappear for the same release.
 
 ### Launch at Login
 
-Toggle in Settings → General. Creates a standard macOS LaunchAgent at `~/Library/LaunchAgents/com.claudephobia.app.plist`.
+Toggle in Settings → General. Uses the macOS SMAppService API (macOS 13+) — no manual plist required.
 
 ## Architecture
 
