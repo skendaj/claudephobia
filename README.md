@@ -9,8 +9,8 @@
 <p align="center">A lightweight macOS menu bar app that monitors your AI assistant usage limits in real time.<br>See your 5-hour session and 7-day weekly usage at a glance — no browser tab required.</p>
 
 <p align="center">
-  <a href="https://github.com/skendaj/clawdephobia/releases/latest/download/clawdephobia.zip">
-    <img src="https://img.shields.io/badge/Download-clawdephobia.zip-D97757?style=for-the-badge&logo=apple&logoColor=white" alt="Download">
+  <a href="https://github.com/skendaj/clawdephobia/releases/latest/download/Clawdephobia.dmg">
+    <img src="https://img.shields.io/badge/Download-Clawdephobia.dmg-D97757?style=for-the-badge&logo=apple&logoColor=white" alt="Download">
   </a>
 </p>
 
@@ -41,8 +41,8 @@ The key looks like `sk-ant-sid01-...`. Paste it into clawdephobia when prompted.
 
 ### Download (recommended)
 
-1. Go to [Releases](../../releases) and download `clawdephobia.zip`
-2. Unzip and drag `clawdephobia.app` to your Applications folder
+1. Go to [Releases](../../releases) and download `Clawdephobia.dmg`
+2. Open the DMG and drag `Clawdephobia.app` to your Applications folder
 3. Right-click the app → **Open** (required on first launch to bypass Gatekeeper)
 
 The app is code-signed and notarized by Apple, so subsequent launches work normally.
