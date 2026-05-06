@@ -341,38 +341,46 @@ struct PopoverView: View {
             }
 
             // Footer
-            HStack(spacing: 8) {
+            HStack(spacing: 0) {
                 if let updated = viewModel.lastUpdated {
                     Text(timeAgo(updated))
                         .font(.system(size: 12))
                         .foregroundColor(.secondary.opacity(0.6))
+                        .lineLimit(1)
                 }
                 // Fixed-size slot so the loading spinner never shifts surrounding elements
                 ProgressView()
                     .scaleEffect(0.5)
-                    .frame(width: 12, height: 12)
+                    .frame(width: 16, height: 12)
                     .opacity(viewModel.isLoading ? 1 : 0)
                 if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !version.isEmpty {
                     Text("v\(version)")
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
-                Spacer()
+                Spacer(minLength: 8)
 
                 Button(action: { viewModel.clearSessionKey() }) {
                     Label("Clear Key", systemImage: "key.slash")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.plain)
+                .fixedSize()
                 .help("Clear session key and return to setup")
+
+                Spacer().frame(width: 12)
 
                 Button(action: { viewModel.fetchUsage() }) {
                     Label(viewModel.isLoading ? "Refreshing…" : "Refresh", systemImage: "arrow.clockwise")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.plain)
+                .fixedSize()
                 .disabled(viewModel.isLoading)
                 .help("Refresh")
             }
