@@ -733,29 +733,83 @@ final class UsageViewModel: ObservableObject {
     }
 
     private func updateCountdowns() {
+        var shouldFetch = false
+
         if let date = sessionResetsAt {
-            sessionResetDescription = formatResetTime(date)
+            if date.timeIntervalSinceNow <= 0 {
+                sessionResetDescription = "Resetting..."
+                if sessionPercent > 0 { sessionPercent = 0; shouldFetch = true }
+                sessionResetsAt = nil
+            } else {
+                sessionResetDescription = formatResetTime(date)
+            }
         }
         if let date = weeklyResetsAt {
-            weeklyResetDescription = formatResetTime(date)
+            if date.timeIntervalSinceNow <= 0 {
+                weeklyResetDescription = "Resetting..."
+                if weeklyPercent > 0 { weeklyPercent = 0; shouldFetch = true }
+                weeklyResetsAt = nil
+            } else {
+                weeklyResetDescription = formatResetTime(date)
+            }
         }
         if let date = opusResetsAt {
-            opusResetDescription = formatResetTime(date)
+            if date.timeIntervalSinceNow <= 0 {
+                opusResetDescription = "Resetting..."
+                if (opusPercent ?? 0) > 0 { opusPercent = 0; shouldFetch = true }
+                opusResetsAt = nil
+            } else {
+                opusResetDescription = formatResetTime(date)
+            }
         }
         if let date = sonnetResetsAt {
-            sonnetResetDescription = formatResetTime(date)
+            if date.timeIntervalSinceNow <= 0 {
+                sonnetResetDescription = "Resetting..."
+                if (sonnetPercent ?? 0) > 0 { sonnetPercent = 0; shouldFetch = true }
+                sonnetResetsAt = nil
+            } else {
+                sonnetResetDescription = formatResetTime(date)
+            }
         }
         if let date = oauthAppsResetsAt {
-            oauthAppsResetDescription = formatResetTime(date)
+            if date.timeIntervalSinceNow <= 0 {
+                oauthAppsResetDescription = "Resetting..."
+                if (oauthAppsPercent ?? 0) > 0 { oauthAppsPercent = 0; shouldFetch = true }
+                oauthAppsResetsAt = nil
+            } else {
+                oauthAppsResetDescription = formatResetTime(date)
+            }
         }
         if let date = coworkResetsAt {
-            coworkResetDescription = formatResetTime(date)
+            if date.timeIntervalSinceNow <= 0 {
+                coworkResetDescription = "Resetting..."
+                if (coworkPercent ?? 0) > 0 { coworkPercent = 0; shouldFetch = true }
+                coworkResetsAt = nil
+            } else {
+                coworkResetDescription = formatResetTime(date)
+            }
         }
         if let date = extraUsageResetsAt {
-            extraUsageResetDescription = formatResetTime(date)
+            if date.timeIntervalSinceNow <= 0 {
+                extraUsageResetDescription = "Resetting..."
+                if (extraUsagePercent ?? 0) > 0 { extraUsagePercent = 0; shouldFetch = true }
+                extraUsageResetsAt = nil
+            } else {
+                extraUsageResetDescription = formatResetTime(date)
+            }
         }
         if let date = omeletteResetsAt {
-            omeletteResetDescription = formatResetTime(date)
+            if date.timeIntervalSinceNow <= 0 {
+                omeletteResetDescription = "Resetting..."
+                if (omelettePercent ?? 0) > 0 { omelettePercent = 0; shouldFetch = true }
+                omeletteResetsAt = nil
+            } else {
+                omeletteResetDescription = formatResetTime(date)
+            }
+        }
+
+        if shouldFetch && !isLoading {
+            fetchUsage()
         }
     }
 
