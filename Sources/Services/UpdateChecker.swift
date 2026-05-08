@@ -13,7 +13,18 @@ actor UpdateChecker {
         let html_url: String
     }
 
+    /// True when this binary was installed from the Mac App Store.
+    /// Detected via the presence of an MASReceipt inside the app bundle.
+    /// App Store installs are updated through the App Store — no GitHub check needed.
+    static var isFromAppStore: Bool {
+        guard let receiptURL = Bundle.main.appStoreReceiptURL else { return false }
+        return receiptURL.path.contains("MASReceipt")
+            && FileManager.default.fileExists(atPath: receiptURL.path)
+    }
+
     func check() async -> UpdateResult? {
+        // App Store installs are updated through the App Store — skip GitHub release check.
+        guard !UpdateChecker.isFromAppStore else { return nil }
         guard !isRecentlyChecked() else { return nil }
 
         guard let url = URL(string: "https://api.github.com/repos/skendaj/Claudephobia/releases/latest") else { return nil }

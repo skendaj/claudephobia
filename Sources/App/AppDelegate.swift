@@ -22,6 +22,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupEditMenu()
+
+        // Explicitly set the app icon so macOS notification banners show the correct icon.
+        // LSUIElement (menu bar-only) apps don't have a Dock tile, so the system sometimes
+        // fails to resolve the icon automatically for UNUserNotificationCenter.
+        if let iconURL = Bundle.main.url(forResource: "icon", withExtension: "png"),
+           let iconImage = NSImage(contentsOf: iconURL) {
+            NSApp.applicationIconImage = iconImage
+        }
+
         viewModel = UsageViewModel()
 
         // Status item

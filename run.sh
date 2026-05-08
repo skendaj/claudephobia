@@ -1,3 +1,4 @@
 #!/bin/bash
 cd "$(dirname "$0")"
-swift build && .build/debug/Clawdephobia
+xcodebuild -project Clawdephobia.xcodeproj -scheme Clawdephobia -configuration Debug -derivedDataPath .build -quiet && \
+  open -W .build/Build/Products/Debug/Clawdephobia.app

@@ -129,6 +129,7 @@ final class UsageViewModel: ObservableObject {
         migrateAll()
         resetIfNewVersion()
         loadSettings()
+        notificationManager.requestPermission()
         if isSetupComplete, let key = storedSessionKey {
             scraper = UsageScraper(sessionKey: key)
             apiClient = ClawdAPIClient(sessionKey: key)
@@ -148,6 +149,7 @@ final class UsageViewModel: ObservableObject {
         apiClient = ClawdAPIClient(sessionKey: sessionKey)
         UserDefaults.standard.set(true, forKey: "clawdephobia.setup_complete")
         isSetupComplete = true
+        notificationManager.requestPermission()
         startAutoRefresh()
         fetchUsage()
     }

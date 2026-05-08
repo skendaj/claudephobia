@@ -4,7 +4,7 @@ import UserNotifications
 
 /// Sends native macOS notifications when usage crosses warning or critical thresholds,
 /// and optionally when limits reset. Optionally mirrors notifications to phone via ntfy.sh.
-final class NotificationManager {
+final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private var sentKeys = Set<String>()
 
     /// Push notification service for phone delivery via ntfy.sh
@@ -27,6 +27,7 @@ final class NotificationManager {
 
     func requestPermission() {
         guard hasBundle else { return }
+        UNUserNotificationCenter.current().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
@@ -85,10 +86,42 @@ final class NotificationManager {
     }
 
     func sendTest() {
-        sendLocal(
-            title: "Clawdephobia \u{2014} Test",
-            body: "Notifications are working."
-        )
+        guard hasBundle else {
+            // Bare binary fallback
+            sendLocal(title: "Clawdephobia \u{2014} Test", body: "Notifications are working.")
+            return
+        }
+        UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+            guard let self else { return }
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                DispatchQueue.main.async {
+                    self.sendLocal(
+                        title: "Clawdephobia \u{2014} Test",
+                        body: "Notifications are working."
+                    )
+                }
+            case .notDetermined:
+                UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                    guard granted else { return }
+                    DispatchQueue.main.async {
+                        self.sendLocal(
+                            title: "Clawdephobia \u{2014} Test",
+                            body: "Notifications are working."
+                        )
+                    }
+                }
+            case .denied:
+                // Notifications are blocked in System Settings — open the pane so user can enable
+                DispatchQueue.main.async {
+                    NSWorkspace.shared.open(
+                        URL(string: "x-apple.systempreferences:com.apple.preference.notifications")!
+                    )
+                }
+            @unknown default:
+                break
+            }
+        }
     }
 
     func sendTestPush() {
@@ -142,7 +175,19 @@ final class NotificationManager {
                 content: content,
                 trigger: nil
             )
-            UNUserNotificationCenter.current().add(request)
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    // UNUserNotificationCenter failed — fall back to osascript
+                    print("[NotificationManager] UNUserNotificationCenter error: \(error). Falling back to osascript.")
+                    let escapedTitle = title.replacingOccurrences(of: "\"", with: "\\\"")
+                    let escapedBody = body.replacingOccurrences(of: "\"", with: "\\\"")
+                    let script = "display notification \"\(escapedBody)\" with title \"\(escapedTitle)\""
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+                    process.arguments = ["-e", script]
+                    try? process.run()
+                }
+            }
         } else {
             // Fallback: use osascript for bare binary / debug builds
             let escapedTitle = title.replacingOccurrences(of: "\"" , with: "\\\"")
@@ -153,5 +198,16 @@ final class NotificationManager {
             process.arguments = ["-e", script]
             try? process.run()
         }
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    /// Allow banners + sound even when the app is the frontmost app (e.g. Settings window open).
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([.banner, .sound])
     }
 }
