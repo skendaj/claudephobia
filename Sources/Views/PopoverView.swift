@@ -366,6 +366,7 @@ struct PopoverView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
                 .buttonStyle(.plain)
                 .fixedSize()
@@ -378,6 +379,7 @@ struct PopoverView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
                 .buttonStyle(.plain)
                 .fixedSize()
@@ -386,7 +388,7 @@ struct PopoverView: View {
             }
         }
         .padding(16)
-        .frame(width: 300)
+        .frame(width: 320)
     }
 
     // MARK: - Usage Row
