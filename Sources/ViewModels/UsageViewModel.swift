@@ -520,22 +520,34 @@ final class UsageViewModel: ObservableObject {
             if property != newValue { property = newValue }
         }
 
+        // If the API returns a resetsAt in the past, the window has expired and a new
+        // one hasn't started yet (e.g. 5-hour session before the first message). Treat
+        // it as "no active window" — otherwise formatResetTime would emit "Resetting..."
+        // on every refresh and the UI gets stuck on that label.
+        func resolvedReset(_ date: Date) -> (Date?, String) {
+            if date.timeIntervalSinceNow <= 0 { return (nil, "") }
+            return (date, formatResetTime(date))
+        }
+
         if let session = data.fiveHour {
             updateIfNeeded(&sessionPercent, session.percentUsed)
-            sessionResetsAt = session.resetsAt
-            updateIfNeeded(&sessionResetDescription, formatResetTime(session.resetsAt))
+            let (date, desc) = resolvedReset(session.resetsAt)
+            sessionResetsAt = date
+            updateIfNeeded(&sessionResetDescription, desc)
         }
 
         if let weekly = data.sevenDay {
             updateIfNeeded(&weeklyPercent, weekly.percentUsed)
-            weeklyResetsAt = weekly.resetsAt
-            updateIfNeeded(&weeklyResetDescription, formatResetTime(weekly.resetsAt))
+            let (date, desc) = resolvedReset(weekly.resetsAt)
+            weeklyResetsAt = date
+            updateIfNeeded(&weeklyResetDescription, desc)
         }
 
         if let opus = data.sevenDayOpus {
             updateIfNeeded(&opusPercent, opus.percentUsed)
-            opusResetsAt = opus.resetsAt
-            updateIfNeeded(&opusResetDescription, formatResetTime(opus.resetsAt))
+            let (date, desc) = resolvedReset(opus.resetsAt)
+            opusResetsAt = date
+            updateIfNeeded(&opusResetDescription, desc)
         } else {
             opusPercent = nil
             opusResetDescription = nil
@@ -544,8 +556,9 @@ final class UsageViewModel: ObservableObject {
 
         if let sonnet = data.sevenDaySonnet {
             updateIfNeeded(&sonnetPercent, sonnet.percentUsed)
-            sonnetResetsAt = sonnet.resetsAt
-            updateIfNeeded(&sonnetResetDescription, formatResetTime(sonnet.resetsAt))
+            let (date, desc) = resolvedReset(sonnet.resetsAt)
+            sonnetResetsAt = date
+            updateIfNeeded(&sonnetResetDescription, desc)
         } else {
             sonnetPercent = nil
             sonnetResetDescription = nil
@@ -554,8 +567,9 @@ final class UsageViewModel: ObservableObject {
 
         if let oauthApps = data.sevenDayOAuthApps {
             updateIfNeeded(&oauthAppsPercent, oauthApps.percentUsed)
-            oauthAppsResetsAt = oauthApps.resetsAt
-            updateIfNeeded(&oauthAppsResetDescription, formatResetTime(oauthApps.resetsAt))
+            let (date, desc) = resolvedReset(oauthApps.resetsAt)
+            oauthAppsResetsAt = date
+            updateIfNeeded(&oauthAppsResetDescription, desc)
         } else {
             oauthAppsPercent = nil
             oauthAppsResetDescription = nil
@@ -564,8 +578,9 @@ final class UsageViewModel: ObservableObject {
 
         if let cowork = data.sevenDayCowork {
             updateIfNeeded(&coworkPercent, cowork.percentUsed)
-            coworkResetsAt = cowork.resetsAt
-            updateIfNeeded(&coworkResetDescription, formatResetTime(cowork.resetsAt))
+            let (date, desc) = resolvedReset(cowork.resetsAt)
+            coworkResetsAt = date
+            updateIfNeeded(&coworkResetDescription, desc)
         } else {
             coworkPercent = nil
             coworkResetDescription = nil
@@ -574,8 +589,9 @@ final class UsageViewModel: ObservableObject {
 
         if let extra = data.extraUsage {
             updateIfNeeded(&extraUsagePercent, extra.percentUsed)
-            extraUsageResetsAt = extra.resetsAt
-            updateIfNeeded(&extraUsageResetDescription, formatResetTime(extra.resetsAt))
+            let (date, desc) = resolvedReset(extra.resetsAt)
+            extraUsageResetsAt = date
+            updateIfNeeded(&extraUsageResetDescription, desc)
         } else {
             extraUsagePercent = nil
             extraUsageResetDescription = nil
@@ -584,8 +600,9 @@ final class UsageViewModel: ObservableObject {
 
         if let omelette = data.sevenDayOmelette {
             updateIfNeeded(&omelettePercent, omelette.percentUsed)
-            omeletteResetsAt = omelette.resetsAt
-            updateIfNeeded(&omeletteResetDescription, formatResetTime(omelette.resetsAt))
+            let (date, desc) = resolvedReset(omelette.resetsAt)
+            omeletteResetsAt = date
+            updateIfNeeded(&omeletteResetDescription, desc)
         } else {
             omelettePercent = nil
             omeletteResetDescription = nil
