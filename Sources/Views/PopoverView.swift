@@ -301,44 +301,31 @@ struct PopoverView: View {
     }
 
     private var expiredBanner: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
+        HStack(spacing: 8) {
+            Image(systemName: "key.slash")
                 .foregroundColor(.orange)
-                .font(.system(size: 14))
-            VStack(alignment: .leading, spacing: 4) {
+                .font(.system(size: 13))
+            VStack(alignment: .leading, spacing: 2) {
                 Text("Session expired")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.orange)
-                Text("Sign in to claude.ai for this account, then paste a fresh session key.")
+                Text("Sign in to claude.ai, then paste a new key.")
                     .font(.system(size: 11))
                     .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button(action: { showAddSheet = true }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "key.fill")
-                            .font(.system(size: 10))
-                        Text("Update Session Key")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color.accent)
-                    .cornerRadius(5)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
             }
-            Spacer(minLength: 0)
+            Spacer()
+            Button(action: { showAddSheet = true }) {
+                Text("Update \u{2192}")
+                    .font(.system(size: 11))
+                    .foregroundColor(.orange.opacity(0.9))
+            }
+            .buttonStyle(.plain)
         }
-        .padding(10)
+        .padding(8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.orange.opacity(0.4), lineWidth: 1)
-        )
-        .cornerRadius(8)
+        .background(Color.orange.opacity(0.08))
+        .cornerRadius(6)
+        .padding(.bottom, 8)
     }
 
     private var serviceDownBanner: some View {

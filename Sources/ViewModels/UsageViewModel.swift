@@ -270,9 +270,17 @@ final class UsageViewModel: ObservableObject {
     /// Validates and adds (or upserts) an account. Used by the first-run onboarding view
     /// and by the "Add account" sheet. Throws on bad key / network / API errors so the
     /// caller can surface a message.
+    ///
+    /// After the store mutation, re-attach the active account unconditionally. When the
+    /// added account is the same one already active (key-rotation case from the
+    /// "Update Session Key" flow on an expired banner), `setActive(sameId)` is a no-op
+    /// and the `$activeId` Combine sink does not fire — without this manual re-attach
+    /// the popover stays stuck on the previous error state.
     @discardableResult
     func addAccount(sessionKey: String) async throws -> Account {
-        try await accountStore.add(sessionKey: sessionKey)
+        let account = try await accountStore.add(sessionKey: sessionKey)
+        attachActiveAccount()
+        return account
     }
 
     /// Enable the synthetic demo account. Idempotent.
