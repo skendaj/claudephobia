@@ -229,13 +229,15 @@ struct PopoverView: View {
             ProgressView()
                 .scaleEffect(0.5)
                 .frame(width: 16, height: 12)
+                .padding(.leading, 6)
                 .opacity(viewModel.isLoading ? 1 : 0)
-            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !version.isEmpty {
-                Text("v\(version)")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
+            // Version label hidden in popover footer (still shown in Settings → About).
+            // if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !version.isEmpty {
+            //     Text("v\(version)")
+            //         .font(.system(size: 11))
+            //         .foregroundColor(.secondary)
+            //         .lineLimit(1)
+            // }
             Spacer(minLength: 8)
 
             Button(action: { showRemoveConfirm = true }) {
