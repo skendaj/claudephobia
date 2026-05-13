@@ -31,6 +31,15 @@ struct RateLimitInfo {
     let resetsAt: Date
 }
 
+/// Pay-as-you-go credit accounting reported under `extra_usage`. Enterprise plans
+/// expose `used_credits` instead of a percentage so we capture both shapes.
+struct ExtraUsageInfo: Equatable {
+    let isEnabled: Bool
+    let usedCredits: Double?
+    let monthlyLimit: Double?
+    let currency: String?
+}
+
 struct ClawdUsageData {
     let fiveHour: RateLimitInfo?
     let sevenDay: RateLimitInfo?
@@ -39,10 +48,12 @@ struct ClawdUsageData {
     let sevenDayOAuthApps: RateLimitInfo?
     let sevenDayCowork: RateLimitInfo?
     let extraUsage: RateLimitInfo?
+    let extraUsageDetail: ExtraUsageInfo?
     let rateLimitTier: String?
-    
+
     // Claude Design / Omelette fields
     let sevenDayOmelette: RateLimitInfo?
+    let sevenDayOmelettePromotional: RateLimitInfo?
     let iguanaNecktie: RateLimitInfo?
 }
 

@@ -4,7 +4,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case general = "General"
     case notifications = "Notifications"
     case phone = "Phone"
-    case account = "Account"
+    case account = "Accounts"
     case data = "Data"
     case about = "About"
 
@@ -15,7 +15,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general: return "gearshape"
         case .notifications: return "bell"
         case .phone: return "iphone"
-        case .account: return "key"
+        case .account: return "person.2"
         case .data: return "externaldrive"
         case .about: return "info.circle"
         }
@@ -24,11 +24,15 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @ObservedObject var viewModel: UsageViewModel
+    @ObservedObject var accountStore: AccountStore
     var onClose: () -> Void
 
     @State private var selectedTab: SettingsTab = .general
-    @State private var newSessionKey: String = ""
     @State private var showResetConfirm = false
+    @State private var showAddAccountSheet = false
+    @State private var renamingId: String? = nil
+    @State private var renameDraft: String = ""
+    @State private var removeCandidateId: String? = nil
 
     var body: some View {
         HStack(spacing: 0) {
@@ -87,7 +91,27 @@ struct SettingsView: View {
                 onClose()
             }
         } message: {
-            Text("This deletes all Clawdephobia data including your session key from Keychain and removes the login item.")
+            Text("This deletes all Clawdephobia data including every account's session key from Keychain and removes the login item.")
+        }
+        .alert("Remove account?", isPresented: Binding(
+            get: { removeCandidateId != nil },
+            set: { if !$0 { removeCandidateId = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { removeCandidateId = nil }
+            Button("Remove", role: .destructive) {
+                if let id = removeCandidateId {
+                    accountStore.remove(id: id)
+                }
+                removeCandidateId = nil
+            }
+        } message: {
+            let label = removeCandidateId.flatMap { accountStore.account(for: $0)?.label } ?? "this account"
+            Text("\(label) will be removed and its session key deleted from Keychain.")
+        }
+        .sheet(isPresented: $showAddAccountSheet) {
+            AddAccountSheet(viewModel: viewModel) {
+                showAddAccountSheet = false
+            }
         }
     }
 
@@ -435,59 +459,149 @@ struct SettingsView: View {
         .tint(Color(red: 0xDE/255.0, green: 0x73/255.0, blue: 0x56/255.0))
     }
 
-    // MARK: - Account
+    // MARK: - Accounts
 
     private var accountTab: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Session key")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 4) {
+                Image(systemName: "lock.shield")
+                    .foregroundColor(.green)
+                    .font(.caption)
+                Text("Each session key is stored securely in macOS Keychain")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
 
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.shield")
-                        .foregroundColor(.green)
-                        .font(.caption)
-                    Text("Stored securely in macOS Keychain")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                SecureField("Paste new session key...", text: $newSessionKey)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(.body, design: .monospaced))
-                    .onSubmit {
-                        let key = newSessionKey.trimmingCharacters(in: .whitespaces)
-                        if !key.isEmpty {
-                            viewModel.updateSessionKey(key)
-                            newSessionKey = ""
+            if accountStore.accounts.isEmpty {
+                Text("No accounts yet. Add one to start tracking usage.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 8)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(accountStore.accounts) { account in
+                        accountRow(account)
+                        if account.id != accountStore.accounts.last?.id {
+                            Divider()
                         }
                     }
-
-                Button("Update Session Key") {
-                    let key = newSessionKey.trimmingCharacters(in: .whitespaces)
-                    if !key.isEmpty {
-                        viewModel.updateSessionKey(key)
-                        newSessionKey = ""
-                    }
                 }
-                .disabled(newSessionKey.trimmingCharacters(in: .whitespaces).isEmpty)
+                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+                .cornerRadius(8)
+            }
 
-                Divider()
-                    .padding(.vertical, 4)
+            HStack(spacing: 12) {
+                Button("Add account\u{2026}") {
+                    showAddAccountSheet = true
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0xDE/255.0, green: 0x73/255.0, blue: 0x56/255.0))
 
-                HStack(spacing: 6) {
-                    Text("Just want to explore?")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Button("Try Demo Mode") {
-                        viewModel.updateSessionKey(UsageViewModel.demoSessionKey)
-                        newSessionKey = ""
+                Button("Try Demo Mode") {
+                    _ = viewModel.enableDemoAccount()
+                }
+                .font(.caption)
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func accountRow(_ account: Account) -> some View {
+        let isActive = account.id == accountStore.activeId
+        let session = isActive
+            ? viewModel.sessionPercent
+            : (accountStore.peeks[account.id]?.sessionPercent ?? 0)
+        let weekly = isActive
+            ? viewModel.weeklyPercent
+            : (accountStore.peeks[account.id]?.weeklyPercent ?? 0)
+
+        return HStack(spacing: 10) {
+            Image(systemName: isActive ? "largecircle.fill.circle" : "circle")
+                .foregroundColor(isActive ? Color(red: 0xDE/255.0, green: 0x73/255.0, blue: 0x56/255.0) : .secondary)
+                .font(.system(size: 14))
+                .onTapGesture {
+                    accountStore.setActive(account.id)
+                }
+
+            VStack(alignment: .leading, spacing: 2) {
+                if renamingId == account.id {
+                    HStack(spacing: 6) {
+                        TextField("Label", text: $renameDraft, onCommit: { commitRename(account.id) })
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: 180)
+                        Button("Save") { commitRename(account.id) }
+                            .controlSize(.small)
+                        Button("Cancel") { renamingId = nil }
+                            .controlSize(.small)
                     }
-                    .font(.caption)
+                } else {
+                    HStack(spacing: 6) {
+                        Text(account.label)
+                            .font(.system(size: 13, weight: .medium))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .help(account.label)
+                        if account.isDemo {
+                            Text("DEMO")
+                                .font(.system(size: 9, weight: .bold))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color.secondary.opacity(0.15))
+                                .cornerRadius(3)
+                        }
+                    }
+                    if let detected = account.detectedName, detected != account.label {
+                        Text(detected)
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .help(detected)
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+
+            Text("\(Int(session * 100))% / \(Int(weekly * 100))%")
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundColor(.secondary)
+
+            Button(action: { startRename(account) }) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Rename")
+            .disabled(renamingId == account.id)
+
+            Button(action: { removeCandidateId = account.id }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Remove")
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+    }
+
+    private func startRename(_ account: Account) {
+        renamingId = account.id
+        renameDraft = account.label
+    }
+
+    private func commitRename(_ id: String) {
+        let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            accountStore.rename(id, to: trimmed)
+        }
+        renamingId = nil
+        renameDraft = ""
     }
 
     private var appVersion: String {

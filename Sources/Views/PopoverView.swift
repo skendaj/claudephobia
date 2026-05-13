@@ -25,136 +25,34 @@ extension Color {
 
 struct PopoverView: View {
     @ObservedObject var viewModel: UsageViewModel
+    @ObservedObject var accountStore: AccountStore
+
+    @State private var showAddSheet: Bool = false
+    @State private var showRemoveConfirm: Bool = false
+    @State private var showInactive: Bool = false
+
+    /// A flattened, render-ready row for the popover usage list. Built fresh each
+    /// pass so we partition into active/idle without keeping any extra view-model state.
+    private struct UsageItem: Identifiable {
+        let id: String
+        let title: String
+        let percent: Double
+        let resetDescription: String
+        let tint: Color
+    }
 
     var body: some View {
-        if viewModel.isSetupComplete {
-            usageView
-        } else {
-            setupView
+        Group {
+            if viewModel.isSetupComplete {
+                usageView
+            } else {
+                FirstRunSetupView(viewModel: viewModel)
+            }
         }
-    }
-
-    // MARK: - Setup
-
-    @State private var sessionKey: String = ""
-    @State private var isTesting: Bool = false
-    @State private var errorMessage: String? = nil
-
-    private var setupView: some View {
-        VStack(spacing: 14) {
-            HStack {
-                Spacer()
-                Button(action: { NSApplication.shared.terminate(nil) }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
+        .sheet(isPresented: $showAddSheet) {
+            AddAccountSheet(viewModel: viewModel) {
+                showAddSheet = false
             }
-
-            AppIconView(size: 48)
-
-            Text("Clawdephobia")
-                .font(.headline)
-
-            Text("Fear of hitting Clawd limits")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .italic()
-
-            Text("Paste your session key to get started.")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-
-            SecureField("sk-ant-sid01-...", text: $sessionKey)
-                .textFieldStyle(.roundedBorder)
-                .font(.system(.caption, design: .monospaced))
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("How to get it:")
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                Text("1. Sign in to your account in a browser")
-                Text("2. DevTools (Cmd+Opt+I) \u{2192} Application \u{2192} Cookies")
-                Text("3. Copy the sessionKey value")
-            }
-            .font(.caption2)
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text("No cost. Uses your existing session cookie.")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .italic()
-
-            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !version.isEmpty {
-                Text("v\(version)")
-                    .font(.caption2)
-                    .foregroundColor(.secondary.opacity(0.5))
-            }
-
-            if let error = errorMessage {
-                Text(error)
-                    .font(.caption2)
-                    .foregroundColor(.orange)
-                    .lineLimit(2)
-            }
-
-            Button(action: connect) {
-                ZStack {
-                    Text("Connect").opacity(isTesting ? 0 : 1)
-                    if isTesting {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(red: 0xDE/255.0, green: 0x73/255.0, blue: 0x56/255.0))
-            .disabled(sessionKey.trimmingCharacters(in: .whitespaces).isEmpty || isTesting)
-
-            HStack(spacing: 6) {
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(.secondary.opacity(0.2))
-                Text("or")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                Rectangle()
-                    .frame(height: 1)
-                    .foregroundColor(.secondary.opacity(0.2))
-            }
-
-            Button("Try Demo Mode") {
-                viewModel.completeSetup(sessionKey: UsageViewModel.demoSessionKey)
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .buttonStyle(.plain)
-        }
-        .padding(16)
-        .frame(width: 280)
-    }
-
-    private func connect() {
-        let key = sessionKey.trimmingCharacters(in: .whitespaces)
-        guard !key.isEmpty else { return }
-
-        isTesting = true
-        errorMessage = nil
-        sessionKey = ""
-
-        let client = ClawdAPIClient(sessionKey: key)
-        Task { @MainActor in
-            do {
-                _ = try await client.testConnection()
-                viewModel.completeSetup(sessionKey: key)
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-            isTesting = false
         }
     }
 
@@ -162,233 +60,487 @@ struct PopoverView: View {
 
     private var usageView: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack(alignment: .center) {
-                HStack(spacing: 6) {
-                    AppIconView(size: 14)
-                    Text("Clawdephobia")
-                        .font(.system(size: 14, weight: .semibold))
+            header
+                .padding(.bottom, 14)
+
+            if viewModel.isUnauthorized {
+                expiredBanner
+                // Only show cached rows if we actually have a previous snapshot to show
+                if viewModel.lastUpdated != nil {
+                    Divider().padding(.vertical, 6)
+                    if viewModel.isEnterprise {
+                        creditsRow.opacity(0.6)
+                    } else {
+                        renderItems.opacity(0.6)
+                    }
                 }
-                Spacer()
-                Button(action: { viewModel.showSettingsWindow = true }) {
-                    Image(systemName: "gear")
-                        .font(.system(size: 14))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                Button(action: { NSApplication.shared.terminate(nil) }) {
-                    Label("Quit", systemImage: "power")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Quit Clawdephobia")
+            } else if viewModel.isEnterprise {
+                creditsRow
+            } else {
+                renderItems
             }
-            .padding(.bottom, 14)
 
-            // 5-hour session
-            usageRow(
-                title: "5-hour session",
-                percent: viewModel.sessionPercent,
-                resetDescription: viewModel.sessionResetDescription,
-                tint: barColor(viewModel.sessionPercent)
-            )
-
-            Divider().padding(.vertical, 6)
-
-            // 7-day weekly
-            usageRow(
-                title: "7-day weekly",
-                percent: viewModel.weeklyPercent,
-                resetDescription: viewModel.weeklyResetDescription,
-                tint: barColor(viewModel.weeklyPercent)
-            )
-
-            // Model-specific limits (only shown when available)
-            if let opusPct = viewModel.opusPercent {
+            // Pro accounts on a paid plan with extra_usage enabled get a dedicated
+            // credits row in addition to the regular limits (does not replace them).
+            if !viewModel.isUnauthorized && !viewModel.isEnterprise &&
+                (viewModel.extraCreditsEnabled || (viewModel.extraCreditsUsed ?? 0) > 0) {
                 Divider().padding(.vertical, 6)
-                usageRow(
-                    title: "Weekly \u{2014} Opus",
-                    percent: opusPct,
-                    resetDescription: viewModel.opusResetDescription ?? "",
-                    tint: barColor(opusPct)
-                )
-            }
-
-            if let sonnetPct = viewModel.sonnetPercent {
-                Divider().padding(.vertical, 6)
-                usageRow(
-                    title: "Weekly \u{2014} Sonnet",
-                    percent: sonnetPct,
-                    resetDescription: viewModel.sonnetResetDescription ?? "",
-                    tint: barColor(sonnetPct)
-                )
-            }
-
-            // OAuth Apps usage
-            if let oauthPct = viewModel.oauthAppsPercent {
-                Divider().padding(.vertical, 6)
-                usageRow(
-                    title: "Weekly \u{2014} OAuth Apps",
-                    percent: oauthPct,
-                    resetDescription: viewModel.oauthAppsResetDescription ?? "",
-                    tint: barColor(oauthPct)
-                )
-            }
-
-            // Cowork usage
-            if let coworkPct = viewModel.coworkPercent {
-                Divider().padding(.vertical, 6)
-                usageRow(
-                    title: "Weekly \u{2014} Cowork",
-                    percent: coworkPct,
-                    resetDescription: viewModel.coworkResetDescription ?? "",
-                    tint: barColor(coworkPct)
-                )
-            }
-
-            // Extra usage
-            if let extraPct = viewModel.extraUsagePercent {
-                Divider().padding(.vertical, 6)
-                usageRow(
-                    title: "Extra usage",
-                    percent: extraPct,
-                    resetDescription: viewModel.extraUsageResetDescription ?? "",
-                    tint: .purple
-                )
-            }
-
-            // Claude Design / Omelette
-            if let omelettePct = viewModel.omelettePercent {
-                usageRow(
-                    title: "Claude Design",
-                    percent: omelettePct,
-                    resetDescription: viewModel.omeletteResetDescription ?? "",
-                    tint: .orange
-                )
+                creditsRow
             }
 
             Divider().padding(.vertical, 6)
 
-            // Update available banner
             if let version = viewModel.updateAvailableVersion {
-                HStack(spacing: 8) {
-                    Image(systemName: "arrow.down.circle.fill")
-                        .foregroundColor(.blue)
-                        .font(.system(size: 13))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Version \(version) available")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.blue)
-                        Button("Download →") {
-                            if let url = URL(string: viewModel.updateReleaseURL) {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 11))
-                        .foregroundColor(.blue.opacity(0.8))
-                    }
-                    Spacer()
-                    Button("Dismiss") {
-                        viewModel.dismissUpdate()
-                    }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                }
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.blue.opacity(0.08))
-                .cornerRadius(6)
-                .padding(.bottom, 8)
+                updateBanner(version: version)
             }
 
-            // Service down banner
             if viewModel.isServiceDown {
-                HStack(spacing: 6) {
-                    Image(systemName: "icloud.slash.fill")
-                        .foregroundColor(.red)
-                        .font(.system(size: 13))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Clawd service appears down")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.red)
-                        Text("Showing last known data. Retrying automatically.")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.red.opacity(0.08))
-                .cornerRadius(6)
-                .padding(.bottom, 8)
+                serviceDownBanner
             }
 
-            // Error
-            if let error = viewModel.errorMessage, !viewModel.isServiceDown {
-                HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(.orange)
-                        .font(.system(size: 12))
-                    Text(error)
-                        .font(.system(size: 12))
-                        .foregroundColor(.orange)
-                        .lineLimit(2)
-                }
-                .padding(.bottom, 8)
+            if let error = viewModel.errorMessage, !viewModel.isServiceDown, !viewModel.isUnauthorized {
+                errorBanner(error)
             }
 
-            // Footer
-            HStack(spacing: 0) {
-                if let updated = viewModel.lastUpdated {
-                    Text(timeAgo(updated))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary.opacity(0.6))
-                        .lineLimit(1)
-                }
-                // Fixed-size slot so the loading spinner never shifts surrounding elements
-                ProgressView()
-                    .scaleEffect(0.5)
-                    .frame(width: 16, height: 12)
-                    .opacity(viewModel.isLoading ? 1 : 0)
-                if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !version.isEmpty {
-                    Text("v\(version)")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
-
-                Button(action: { viewModel.clearSessionKey() }) {
-                    Label("Clear Key", systemImage: "key.slash")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                }
-                .buttonStyle(.plain)
-                .fixedSize()
-                .help("Clear session key and return to setup")
-
-                Spacer().frame(width: 12)
-
-                Button(action: { viewModel.fetchUsage() }) {
-                    Label(viewModel.isLoading ? "Refreshing…" : "Refresh", systemImage: "arrow.clockwise")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                }
-                .buttonStyle(.plain)
-                .fixedSize()
-                .disabled(viewModel.isLoading)
-                .help("Refresh")
-            }
+            footer
         }
         .padding(16)
         .frame(width: 320)
+        .alert("Remove this account?", isPresented: $showRemoveConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Remove", role: .destructive) {
+                viewModel.removeActiveAccount()
+            }
+        } message: {
+            Text("\(accountStore.activeAccount?.label ?? "This account") will be removed from Clawdephobia. Its session key is deleted from Keychain.")
+        }
+    }
+
+    // MARK: - Header (with switcher)
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 8) {
+            AppIconView(size: 18)
+            accountSwitcher
+            Spacer()
+            Button(action: { viewModel.showSettingsWindow = true }) {
+                Image(systemName: "gear")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Settings")
+            Button(action: { NSApplication.shared.terminate(nil) }) {
+                Image(systemName: "power")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Quit Clawdephobia")
+        }
+    }
+
+    private var accountSwitcher: some View {
+        Menu {
+            // Each account row — click to set active
+            ForEach(accountStore.accounts) { account in
+                Button {
+                    viewModel.setActiveAccount(account.id)
+                } label: {
+                    HStack {
+                        if account.id == accountStore.activeId {
+                            Image(systemName: "checkmark")
+                        }
+                        Text(switcherRowLabel(for: account))
+                    }
+                }
+            }
+
+            if !accountStore.accounts.isEmpty {
+                Divider()
+            }
+
+            Button("Add account\u{2026}") {
+                showAddSheet = true
+            }
+
+            Button("Manage accounts\u{2026}") {
+                viewModel.showSettingsWindow = true
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(displayLabel(accountStore.activeAccount?.label) ?? "Clawdephobia")
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(.secondary)
+            }
+            .frame(maxWidth: 200, alignment: .leading)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .layoutPriority(0)
+        .help(accountStore.activeAccount?.label ?? "")
+    }
+
+    /// Trims overly verbose org labels like `"someone@example.com's Organization"`
+    /// down to something that fits in the menu bar header. Storage is untouched.
+    private func displayLabel(_ raw: String?) -> String? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
+        var trimmed = raw
+        let orgSuffix = "\u{2019}s Organization"  // typographic apostrophe
+        let asciiSuffix = "'s Organization"
+        for suffix in [orgSuffix, asciiSuffix] {
+            if trimmed.hasSuffix(suffix) {
+                trimmed = String(trimmed.dropLast(suffix.count))
+                break
+            }
+        }
+        if let at = trimmed.firstIndex(of: "@") {
+            trimmed = String(trimmed[..<at])
+        }
+        return trimmed.isEmpty ? raw : trimmed
+    }
+
+    private func switcherRowLabel(for account: Account) -> String {
+        if account.id == accountStore.activeId {
+            return "\(account.label)  \u{2022}  \(Int(viewModel.sessionPercent * 100))% / \(Int(viewModel.weeklyPercent * 100))%"
+        }
+        if let peek = accountStore.peeks[account.id] {
+            return "\(account.label)  \u{2022}  \(Int(peek.sessionPercent * 100))% / \(Int(peek.weeklyPercent * 100))%"
+        }
+        return account.label
+    }
+
+    // MARK: - Footer
+
+    private var footer: some View {
+        HStack(spacing: 0) {
+            if let updated = viewModel.lastUpdated {
+                Text(timeAgo(updated))
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary.opacity(0.6))
+                    .lineLimit(1)
+            }
+            ProgressView()
+                .scaleEffect(0.5)
+                .frame(width: 16, height: 12)
+                .opacity(viewModel.isLoading ? 1 : 0)
+            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !version.isEmpty {
+                Text("v\(version)")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+
+            Button(action: { showRemoveConfirm = true }) {
+                Label("Remove", systemImage: "person.fill.xmark")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(.plain)
+            .fixedSize()
+            .help("Remove this account from Clawdephobia")
+
+            Spacer().frame(width: 12)
+
+            Button(action: { viewModel.fetchUsage() }) {
+                Label(viewModel.isLoading ? "Refreshing\u{2026}" : "Refresh", systemImage: "arrow.clockwise")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .buttonStyle(.plain)
+            .fixedSize()
+            .disabled(viewModel.isLoading)
+            .help("Refresh")
+        }
+    }
+
+    // MARK: - Banners
+
+    private func updateBanner(version: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundColor(.blue)
+                .font(.system(size: 13))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Version \(version) available")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.blue)
+                Button("Download \u{2192}") {
+                    if let url = URL(string: viewModel.updateReleaseURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11))
+                .foregroundColor(.blue.opacity(0.8))
+            }
+            Spacer()
+            Button("Dismiss") {
+                viewModel.dismissUpdate()
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11))
+            .foregroundColor(.secondary)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.blue.opacity(0.08))
+        .cornerRadius(6)
+        .padding(.bottom, 8)
+    }
+
+    private var expiredBanner: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+                .font(.system(size: 14))
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Session expired")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.orange)
+                Text("Sign in to claude.ai for this account, then paste a fresh session key.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(action: { showAddSheet = true }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "key.fill")
+                            .font(.system(size: 10))
+                        Text("Update Session Key")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.accent)
+                    .cornerRadius(5)
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.orange.opacity(0.4), lineWidth: 1)
+        )
+        .cornerRadius(8)
+    }
+
+    private var serviceDownBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "icloud.slash.fill")
+                .foregroundColor(.red)
+                .font(.system(size: 13))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Clawd service appears down")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.red)
+                Text("Showing last known data. Retrying automatically.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.red.opacity(0.08))
+        .cornerRadius(6)
+        .padding(.bottom, 8)
+    }
+
+    private func errorBanner(_ error: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundColor(.orange)
+                .font(.system(size: 12))
+            Text(error)
+                .font(.system(size: 12))
+                .foregroundColor(.orange)
+                .lineLimit(2)
+        }
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - Items list (active + idle accordion)
+
+    private var allItems: [UsageItem] {
+        var items: [UsageItem] = []
+        items.append(UsageItem(
+            id: "5h",
+            title: "5-hour session",
+            percent: viewModel.sessionPercent,
+            resetDescription: viewModel.sessionResetDescription,
+            tint: barColor(viewModel.sessionPercent)
+        ))
+        items.append(UsageItem(
+            id: "7d",
+            title: "7-day weekly",
+            percent: viewModel.weeklyPercent,
+            resetDescription: viewModel.weeklyResetDescription,
+            tint: barColor(viewModel.weeklyPercent)
+        ))
+        if let p = viewModel.opusPercent {
+            items.append(UsageItem(id: "opus", title: "Weekly \u{2014} Opus", percent: p,
+                resetDescription: viewModel.opusResetDescription ?? "", tint: barColor(p)))
+        }
+        if let p = viewModel.sonnetPercent {
+            items.append(UsageItem(id: "sonnet", title: "Weekly \u{2014} Sonnet", percent: p,
+                resetDescription: viewModel.sonnetResetDescription ?? "", tint: barColor(p)))
+        }
+        if let p = viewModel.oauthAppsPercent {
+            items.append(UsageItem(id: "oauth", title: "Weekly \u{2014} OAuth Apps", percent: p,
+                resetDescription: viewModel.oauthAppsResetDescription ?? "", tint: barColor(p)))
+        }
+        if let p = viewModel.coworkPercent {
+            items.append(UsageItem(id: "cowork", title: "Weekly \u{2014} Cowork", percent: p,
+                resetDescription: viewModel.coworkResetDescription ?? "", tint: barColor(p)))
+        }
+        if let p = viewModel.extraUsagePercent {
+            items.append(UsageItem(id: "extra", title: "Extra usage", percent: p,
+                resetDescription: viewModel.extraUsageResetDescription ?? "", tint: .purple))
+        }
+        items.append(UsageItem(
+            id: "design",
+            title: "Claude Design",
+            percent: viewModel.omelettePercent ?? 0,
+            resetDescription: viewModel.omeletteResetDescription ?? "",
+            tint: .orange
+        ))
+        if let p = viewModel.promotionalOmelettePercent {
+            items.append(UsageItem(id: "promo", title: "Promotional", percent: p,
+                resetDescription: viewModel.promotionalOmeletteResetDescription ?? "", tint: .pink))
+        }
+        return items
+    }
+
+    @ViewBuilder
+    private var renderItems: some View {
+        let items = allItems
+        let active = items.filter { $0.percent > 0 }
+        let idle = items.filter { $0.percent <= 0 }
+
+        // Active section
+        ForEach(Array(active.enumerated()), id: \.element.id) { index, item in
+            if index > 0 { Divider().padding(.vertical, 6) }
+            usageRow(
+                title: item.title,
+                percent: item.percent,
+                resetDescription: item.resetDescription,
+                tint: item.tint
+            )
+        }
+
+        // Idle accordion — full-width clickable header (chevron + label both tap-targets)
+        if !idle.isEmpty {
+            if !active.isEmpty { Divider().padding(.vertical, 6) }
+            Button(action: { withAnimation(.easeInOut(duration: 0.18)) { showInactive.toggle() } }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .rotationEffect(.degrees(showInactive ? 90 : 0))
+                    Text("Inactive limits \u{00B7} \(idle.count)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+                .padding(.vertical, 4)
+            }
+            .buttonStyle(.plain)
+
+            if showInactive {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(idle.enumerated()), id: \.element.id) { index, item in
+                        if index > 0 { Divider().padding(.vertical, 6) }
+                        usageRow(
+                            title: item.title,
+                            percent: item.percent,
+                            resetDescription: item.resetDescription,
+                            tint: item.tint
+                        )
+                    }
+                }
+                .padding(.top, 4)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    // MARK: - Credits Row (pay-as-you-go / enterprise)
+
+    private var creditsRow: some View {
+        // API reports amounts in cents (`1437.0` ⇒ `$14.37`).
+        let currency = viewModel.extraCreditsCurrency ?? "USD"
+        let usedDollars = (viewModel.extraCreditsUsed ?? 0) / 100.0
+        let limitDollars: Double? = viewModel.extraCreditsMonthlyLimit.map { $0 / 100.0 }
+        let usedString = formatCurrency(usedDollars, code: currency)
+        let pct: Double? = {
+            guard let limit = limitDollars, limit > 0 else { return nil }
+            return min(1.0, usedDollars / limit)
+        }()
+        let resetSubtitle = viewModel.creditsResetDescription
+
+        let badgeText = limitDollars == nil ? "Unlimited" : "Capped"
+
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text("Enterprise")
+                    .font(.system(size: 13, weight: .medium))
+                Text(badgeText)
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Color.purple.opacity(0.15))
+                    .foregroundColor(.purple)
+                    .cornerRadius(3)
+                Spacer()
+                Text(usedString)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundColor(.purple)
+            }
+            HStack {
+                Text(resetSubtitle.isEmpty ? " " : resetSubtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("Spent")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+            if let pct = pct, let limit = limitDollars {
+                UsageProgressBar(value: pct, tint: barColor(pct))
+                    .frame(height: 6)
+                    .padding(.top, 2)
+                Text("\(usedString) of \(formatCurrency(limit, code: currency))")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func formatCurrency(_ amount: Double, code: String) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = code
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: amount)) ?? "\(amount) \(code)"
     }
 
     // MARK: - Usage Row
@@ -443,19 +595,6 @@ struct PopoverView: View {
         return .blue
     }
 
-    private func tierDisplayName(_ tier: String) -> String {
-        let lower = tier.lowercased()
-        if lower.contains("max_20x") || lower.contains("max20x") { return "Clawd Max 20x Plan" }
-        if lower.contains("max_5x") || lower.contains("max5x") { return "Clawd Max 5x Plan" }
-        if lower.contains("max") { return "Clawd Max Plan" }
-        if lower.contains("pro") { return "Clawd Pro Plan" }
-        if lower.contains("team") { return "Clawd Team Plan" }
-        if lower.contains("enterprise") { return "Clawd Enterprise Plan" }
-        if lower.contains("free") || lower.contains("default") { return "Clawd Free Plan" }
-        // Fallback: clean up the raw string
-        return tier.replacingOccurrences(of: "_", with: " ").capitalized + " Plan"
-    }
-
     private func timeAgo(_ date: Date) -> String {
         let seconds = Int(-date.timeIntervalSinceNow)
         if seconds < 60 { return "just now" }
@@ -468,13 +607,228 @@ struct PopoverView: View {
     }
 }
 
+// MARK: - First-run setup
+
+private struct FirstRunSetupView: View {
+    @ObservedObject var viewModel: UsageViewModel
+    @State private var sessionKey: String = ""
+    @State private var isTesting: Bool = false
+    @State private var errorMessage: String? = nil
+
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack {
+                Spacer()
+                Button(action: { NSApplication.shared.terminate(nil) }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            AppIconView(size: 48)
+
+            Text("Clawdephobia")
+                .font(.headline)
+
+            Text("Fear of hitting Clawd limits")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .italic()
+
+            Text("Paste your session key to get started.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+
+            SecureField("sk-ant-sid01-...", text: $sessionKey)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.caption, design: .monospaced))
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("How to get it:")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                Text("1. Sign in to your account in a browser")
+                Text("2. DevTools (Cmd+Opt+I) \u{2192} Application \u{2192} Cookies")
+                Text("3. Copy the sessionKey value")
+            }
+            .font(.caption2)
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(alignment: .top, spacing: 4) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 9))
+                    .foregroundColor(.orange)
+                Text("Stay signed in to claude.ai or the session key expires.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text("No cost. Uses your existing session cookie.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .italic()
+
+            if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String, !version.isEmpty {
+                Text("v\(version)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.5))
+            }
+
+            if let error = errorMessage {
+                Text(error)
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+                    .lineLimit(2)
+            }
+
+            Button(action: connect) {
+                ZStack {
+                    Text("Connect").opacity(isTesting ? 0 : 1)
+                    if isTesting {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color.accent)
+            .disabled(sessionKey.trimmingCharacters(in: .whitespaces).isEmpty || isTesting)
+
+            HStack(spacing: 6) {
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(.secondary.opacity(0.2))
+                Text("or")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Rectangle()
+                    .frame(height: 1)
+                    .foregroundColor(.secondary.opacity(0.2))
+            }
+
+            Button("Try Demo Mode") {
+                _ = viewModel.enableDemoAccount()
+            }
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .frame(width: 280)
+    }
+
+    private func connect() {
+        let key = sessionKey.trimmingCharacters(in: .whitespaces)
+        guard !key.isEmpty else { return }
+
+        isTesting = true
+        errorMessage = nil
+        let pending = key
+        sessionKey = ""
+
+        Task { @MainActor in
+            do {
+                _ = try await viewModel.addAccount(sessionKey: pending)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isTesting = false
+        }
+    }
+}
+
+// MARK: - Add Account Sheet
+
+struct AddAccountSheet: View {
+    @ObservedObject var viewModel: UsageViewModel
+    var onDismiss: () -> Void
+
+    @State private var sessionKey: String = ""
+    @State private var isTesting: Bool = false
+    @State private var errorMessage: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Add account")
+                .font(.headline)
+
+            Text("Paste a session key from another Claude account. Clawdephobia will detect the account name automatically — you can rename it later.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            SecureField("sk-ant-sid01-...", text: $sessionKey)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.caption, design: .monospaced))
+
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(.orange)
+                Text("Stay signed in to claude.ai on this browser for every account you add. If you sign out, the session key expires and you'll need to paste a fresh one.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let error = errorMessage {
+                Text(error)
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+                    .lineLimit(3)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { onDismiss() }
+                    .keyboardShortcut(.escape)
+                Button(action: submit) {
+                    ZStack {
+                        Text("Add").opacity(isTesting ? 0 : 1)
+                        if isTesting {
+                            ProgressView().controlSize(.small)
+                        }
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.accent)
+                .disabled(sessionKey.trimmingCharacters(in: .whitespaces).isEmpty || isTesting)
+            }
+        }
+        .padding(20)
+        .frame(width: 360)
+    }
+
+    private func submit() {
+        let key = sessionKey.trimmingCharacters(in: .whitespaces)
+        guard !key.isEmpty else { return }
+        isTesting = true
+        errorMessage = nil
+
+        Task { @MainActor in
+            do {
+                _ = try await viewModel.addAccount(sessionKey: key)
+                onDismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isTesting = false
+        }
+    }
+}
+
 // MARK: - Progress Bar
 
 struct AppIconView: View {
     var size: CGFloat = 48
 
     private static let cachedImage: NSImage = {
-        // Try SPM resource bundle, then main bundle Resources, then app icon from asset catalog
         if let spm = Bundle.safeModule?.url(forResource: "icon", withExtension: "png"),
            let image = NSImage(contentsOf: spm) {
             image.size = NSSize(width: 256, height: 256)
@@ -514,7 +868,6 @@ struct UsageProgressBar: View {
                     .fill(Color.gray.opacity(0.15))
 
                 if isOverflow {
-                    // Full bar with striped pattern to indicate overflow
                     OverflowStripes(tint: tint)
                         .clipShape(Capsule())
                 } else {
@@ -527,7 +880,6 @@ struct UsageProgressBar: View {
     }
 }
 
-// Striped pattern for overflow bars using simple SwiftUI shapes
 struct OverflowStripes: View {
     let tint: Color
 

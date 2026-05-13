@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var viewModel: UsageViewModel!
+    private var accountStore: AccountStore!
+    private var notificationManager: NotificationManager!
     private var cancellables = Set<AnyCancellable>()
     private var settingsWindow: NSWindow?
     private var eventMonitor: Any?
@@ -31,7 +33,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApp.applicationIconImage = iconImage
         }
 
-        viewModel = UsageViewModel()
+        notificationManager = NotificationManager()
+        accountStore = AccountStore(notificationManager: notificationManager)
+        viewModel = UsageViewModel(accountStore: accountStore, notificationManager: notificationManager)
 
         // Status item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -39,7 +43,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Popover — SwiftUI content determines size
         popover = NSPopover()
         popover.behavior = .transient
-        let hostingController = NSHostingController(rootView: PopoverView(viewModel: viewModel))
+        let hostingController = NSHostingController(
+            rootView: PopoverView(viewModel: viewModel, accountStore: accountStore)
+        )
         hostingController.sizingOptions = .preferredContentSize
         popover.contentViewController = hostingController
 
@@ -245,7 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if #available(macOS 14, *) { NSApp.activate() } else { NSApp.activate(ignoringOtherApps: true) }
             return
         }
-        let settingsView = SettingsView(viewModel: viewModel) { [weak self] in
+        let settingsView = SettingsView(viewModel: viewModel, accountStore: accountStore) { [weak self] in
             self?.closeSettingsWindow()
         }
         let window = NSWindow(

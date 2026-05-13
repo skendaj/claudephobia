@@ -4,6 +4,10 @@ import UserNotifications
 
 /// Sends native macOS notifications when usage crosses warning or critical thresholds,
 /// and optionally when limits reset. Optionally mirrors notifications to phone via ntfy.sh.
+///
+/// Per-account state: `sentKeys` and `previousPercents` are namespaced by `accountId`
+/// so notifications for one account don't suppress another, and removing an account
+/// can wipe just that account's throttle state via `reset(accountId:)`.
 final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private var sentKeys = Set<String>()
 
@@ -19,7 +23,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// The ntfy server URL (default: https://ntfy.sh, or self-hosted)
     var pushServerURL: String = "https://ntfy.sh"
 
-    /// Tracks previous percent values to detect resets (usage dropping significantly)
+    /// Tracks previous percent values to detect resets (usage dropping significantly).
+    /// Keyed by `"<accountId>:<limitLabel>"`.
     private var previousPercents: [String: Double] = [:]
 
     /// Whether we're running inside a proper .app bundle (UNUserNotificationCenter requires one)
@@ -33,6 +38,8 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
 
     /// Check usage and fire notifications if thresholds are crossed.
     func checkAndNotify(
+        accountId: String,
+        accountLabel: String,
         label: String,
         percentUsed: Double,
         warningThreshold: Double,
@@ -40,33 +47,36 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         notifyOnReset: Bool
     ) {
         let pct = Int(percentUsed * 100)
-        let warnKey = "\(label)-warning"
-        let critKey = "\(label)-critical"
-        let resetKey = "\(label)-reset"
+        let warnKey = "\(accountId):\(label)-warning"
+        let critKey = "\(accountId):\(label)-critical"
+        let resetKey = "\(accountId):\(label)-reset"
+        let prevKey = "\(accountId):\(label)"
+
+        let titlePrefix = "Clawdephobia \u{2014} \(accountLabel)"
 
         // Threshold notifications
         if percentUsed >= criticalThreshold && !sentKeys.contains(critKey) {
             sentKeys.insert(critKey)
             send(
-                title: "Clawdephobia \u{2014} Critical",
-                body: "\(label) at \(pct)%. You're about to hit your limit.",
+                title: titlePrefix,
+                body: "Critical: \(label) at \(pct)%. You're about to hit your limit.",
                 priority: 5
             )
         } else if percentUsed >= warningThreshold && !sentKeys.contains(warnKey) {
             sentKeys.insert(warnKey)
             send(
-                title: "Clawdephobia \u{2014} Warning",
-                body: "\(label) at \(pct)%. Consider slowing down."
+                title: titlePrefix,
+                body: "Warning: \(label) at \(pct)%. Consider slowing down."
             )
         }
 
         // Reset detection: usage dropped from >=20% to <5% (limit restored)
-        if notifyOnReset, let prev = previousPercents[label] {
+        if notifyOnReset, let prev = previousPercents[prevKey] {
             if prev >= 0.20 && percentUsed < 0.05 && !sentKeys.contains(resetKey) {
                 sentKeys.insert(resetKey)
                 send(
-                    title: "Clawdephobia \u{2014} Restored",
-                    body: "\(label) has reset. You're good to go."
+                    title: titlePrefix,
+                    body: "Restored: \(label) has reset. You're good to go."
                 )
             }
         }
@@ -82,7 +92,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             sentKeys.remove(resetKey)
         }
 
-        previousPercents[label] = percentUsed
+        previousPercents[prevKey] = percentUsed
     }
 
     func sendTest() {
@@ -128,22 +138,31 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         pushService.sendTest(topic: pushTopic, serverURL: pushServerURL)
     }
 
-    func sendServiceDown() {
-        guard !sentKeys.contains("service-down") else { return }
-        sentKeys.insert("service-down")
+    func sendServiceDown(accountId: String, accountLabel: String) {
+        let key = "\(accountId):service-down"
+        guard !sentKeys.contains(key) else { return }
+        sentKeys.insert(key)
         send(
-            title: "Clawdephobia \u{2014} Service Down",
-            body: "Clawd appears to be unreachable. Usage data may be stale."
+            title: "Clawdephobia \u{2014} \(accountLabel)",
+            body: "Service appears to be unreachable. Usage data may be stale."
         )
     }
 
-    func clearServiceDown() {
-        sentKeys.remove("service-down")
+    func clearServiceDown(accountId: String) {
+        sentKeys.remove("\(accountId):service-down")
     }
 
+    /// Clear all notification throttle state across every account.
     func reset() {
         sentKeys.removeAll()
         previousPercents.removeAll()
+    }
+
+    /// Clear notification throttle state scoped to one account (used when removing it).
+    func reset(accountId: String) {
+        let prefix = "\(accountId):"
+        sentKeys = sentKeys.filter { !$0.hasPrefix(prefix) }
+        previousPercents = previousPercents.filter { !$0.key.hasPrefix(prefix) }
     }
 
     // MARK: - Private

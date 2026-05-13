@@ -38,10 +38,37 @@ final class UsageViewModel: ObservableObject {
     @Published var extraUsagePercent: Double?
     @Published var extraUsageResetDescription: String?
 
+    /// Pay-as-you-go credit accounting (enterprise-style billing). Credit values
+    /// are stored as raw API cents (`1437.0` = `$14.37`); convert at the view layer.
+    @Published var extraCreditsEnabled: Bool = false
+    @Published var extraCreditsUsed: Double?
+    @Published var extraCreditsMonthlyLimit: Double?
+    @Published var extraCreditsCurrency: String?
+    /// "Resets MMM d" for the credit row — derived locally (API does not return it).
+    @Published var creditsResetDescription: String = ""
+
+    /// True only when the API reports **no** 5-hour or 7-day window at all and
+    /// extra-usage credit billing is active — i.e. true enterprise / credits-only
+    /// plans. Pro accounts that happen to enable `extra_usage` alongside their
+    /// regular limits still render normally (5h/7d bars stay visible).
+    var isEnterprise: Bool {
+        extraCreditsEnabled && !hasSessionLimit && !hasWeeklyLimit
+    }
+
+    /// Set to true when the API actually reported a 5-hour / 7-day window for the
+    /// active account. Enterprise plans return null for these; the popover hides
+    /// the rows entirely when the corresponding flag is false.
+    @Published var hasSessionLimit: Bool = false
+    @Published var hasWeeklyLimit: Bool = false
+
     // Claude Design / Omelette
     @Published var omelettePercent: Double?
     @Published var omeletteResetDescription: String?
-    
+
+    /// Promotional Claude Design quota (separate counter on some plans).
+    @Published var promotionalOmelettePercent: Double?
+    @Published var promotionalOmeletteResetDescription: String?
+
     // Tier
     @Published var rateLimitTier: String?
 
@@ -65,6 +92,10 @@ final class UsageViewModel: ObservableObject {
 
     /// True when Clawd's service appears to be down (consecutive server/network failures)
     @Published var isServiceDown: Bool = false
+
+    /// True when the active account's last fetch returned 401/403. Drives the
+    /// "Session expired — update your key" banner in the popover.
+    @Published var isUnauthorized: Bool = false
 
     /// Non-nil when a newer GitHub release is available and not yet dismissed
     @Published var updateAvailableVersion: String? = nil
@@ -91,14 +122,16 @@ final class UsageViewModel: ObservableObject {
 
     // MARK: - Services
 
+    let accountStore: AccountStore
     private var scraper: UsageScraper?
     private var apiClient: ClawdAPIClient?
-    private let notificationManager = NotificationManager()
+    private let notificationManager: NotificationManager
     private let updateChecker = UpdateChecker()
     private var refreshTimer: Timer?
     private var countdownTimer: Timer?
     private var networkMonitor: NWPathMonitor?
     private var wasNetworkUnsatisfied = false
+    private var cancellables = Set<AnyCancellable>()
 
     /// Raw reset dates for live countdown
     private var sessionResetsAt: Date?
@@ -109,6 +142,7 @@ final class UsageViewModel: ObservableObject {
     private var coworkResetsAt: Date?
     private var extraUsageResetsAt: Date?
     private var omeletteResetsAt: Date?
+    private var promotionalOmeletteResetsAt: Date?
 
     /// Minimum seconds between fetches (prevents hammering on popover open)
     private let minFetchInterval: TimeInterval = 30
@@ -125,60 +159,91 @@ final class UsageViewModel: ObservableObject {
     /// Data schema version — bump this to force a reset on next launch
     private static let dataSchemaVersion = 2
 
-    init() {
+    init(accountStore: AccountStore, notificationManager: NotificationManager) {
+        self.accountStore = accountStore
+        self.notificationManager = notificationManager
         migrateAll()
         resetIfNewVersion()
         loadSettings()
         notificationManager.requestPermission()
-        if isSetupComplete, let key = storedSessionKey {
-            scraper = UsageScraper(sessionKey: key)
-            apiClient = ClawdAPIClient(sessionKey: key)
-            startAutoRefresh()
-            fetchUsage()
-        }
+        bindAccountStore()
+        attachActiveAccount()
         startCountdownTimer()
         observeSystemEvents()
         Task { await checkForUpdate() }
     }
 
-    // MARK: - Setup
+    private func bindAccountStore() {
+        accountStore.$activeId
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.attachActiveAccount()
+            }
+            .store(in: &cancellables)
 
-    func completeSetup(sessionKey: String) {
-        storeSessionKey(sessionKey)
-        scraper = UsageScraper(sessionKey: sessionKey)
-        apiClient = ClawdAPIClient(sessionKey: sessionKey)
-        UserDefaults.standard.set(true, forKey: "clawdephobia.setup_complete")
-        isSetupComplete = true
-        notificationManager.requestPermission()
+        accountStore.$accounts
+            .map { !$0.isEmpty }
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] hasAny in
+                self?.isSetupComplete = hasAny
+                UserDefaults.standard.set(hasAny, forKey: "clawdephobia.setup_complete")
+                if !hasAny { self?.clearActiveState() }
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Called when the active account changes or on launch — rebuilds the scraper and
+    /// kicks off a refresh against the newly active account.
+    private func attachActiveAccount() {
+        refreshTimer?.invalidate()
+        refreshTimer = nil
+        clearActiveState()
+        guard let id = accountStore.activeId,
+              let key = accountStore.activeSessionKey else { return }
+        scraper = UsageScraper(sessionKey: key)
+        apiClient = ClawdAPIClient(sessionKey: key)
+        // Hydrate from in-memory snapshot so switching back to a previously-fetched
+        // account doesn't flash empty bars before the network round-trip completes.
+        if let snapshot = accountStore.snapshot(for: id) {
+            lastUsageData = snapshot
+            applyUsageData(snapshot)
+            lastUpdated = Date()
+        }
         startAutoRefresh()
         fetchUsage()
     }
 
-    func updateSessionKey(_ key: String) {
-        storeSessionKey(key)
-        scraper = UsageScraper(sessionKey: key)
-        apiClient?.updateSessionKey(key)
-        errorMessage = nil
-        fetchUsage()
-    }
-
-    func clearSessionKey() {
-        KeychainHelper.delete(key: "session_key")
-        refreshTimer?.invalidate()
-        refreshTimer = nil
-        countdownTimer?.invalidate()
-        countdownTimer = nil
+    /// Zeros out the active-account-derived published state. Called when switching accounts
+    /// (so the previous account's bars don't briefly show under the new label) and when all
+    /// accounts are removed.
+    private func clearActiveState() {
         scraper = nil
         apiClient = nil
-        notificationManager.reset()
         sessionPercent = 0
         weeklyPercent = 0
         opusPercent = nil
+        opusResetDescription = nil
         sonnetPercent = nil
+        sonnetResetDescription = nil
         oauthAppsPercent = nil
+        oauthAppsResetDescription = nil
         coworkPercent = nil
+        coworkResetDescription = nil
         extraUsagePercent = nil
+        extraUsageResetDescription = nil
+        extraCreditsEnabled = false
+        extraCreditsUsed = nil
+        extraCreditsMonthlyLimit = nil
+        extraCreditsCurrency = nil
+        creditsResetDescription = ""
+        hasSessionLimit = false
+        hasWeeklyLimit = false
         omelettePercent = nil
+        omeletteResetDescription = nil
+        promotionalOmelettePercent = nil
+        promotionalOmeletteResetDescription = nil
         rateLimitTier = nil
         sessionResetDescription = ""
         weeklyResetDescription = ""
@@ -190,14 +255,45 @@ final class UsageViewModel: ObservableObject {
         coworkResetsAt = nil
         extraUsageResetsAt = nil
         omeletteResetsAt = nil
+        promotionalOmeletteResetsAt = nil
         lastUpdated = nil
         errorMessage = nil
         lastUsageData = nil
         isPacingWarning = false
         isServiceDown = false
+        isUnauthorized = false
         consecutiveFailures = 0
-        UserDefaults.standard.set(false, forKey: "clawdephobia.setup_complete")
-        isSetupComplete = false
+    }
+
+    // MARK: - Account Actions (used by views)
+
+    /// Validates and adds (or upserts) an account. Used by the first-run onboarding view
+    /// and by the "Add account" sheet. Throws on bad key / network / API errors so the
+    /// caller can surface a message.
+    @discardableResult
+    func addAccount(sessionKey: String) async throws -> Account {
+        try await accountStore.add(sessionKey: sessionKey)
+    }
+
+    /// Enable the synthetic demo account. Idempotent.
+    @discardableResult
+    func enableDemoAccount() -> Account {
+        accountStore.addDemo()
+    }
+
+    /// Removes the active account; the next account in the list becomes active automatically.
+    func removeActiveAccount() {
+        guard let id = accountStore.activeId else { return }
+        accountStore.remove(id: id)
+    }
+
+    func renameActiveAccount(_ newLabel: String) {
+        guard let id = accountStore.activeId else { return }
+        accountStore.rename(id, to: newLabel)
+    }
+
+    func setActiveAccount(_ id: String) {
+        accountStore.setActive(id)
     }
 
     func testConnection(sessionKey: String) async throws {
@@ -205,24 +301,10 @@ final class UsageViewModel: ObservableObject {
         _ = try await client.testConnection()
     }
 
-    // MARK: - Debug
-
-//    /// Temporarily fake service-down state for UI testing.
-//    func debugToggleServiceDown() {
-//        isServiceDown.toggle()
-//        if isServiceDown {
-//            errorMessage = "Clawd appears to be down. Retrying automatically..."
-//        } else {
-//            errorMessage = nil
-//        }
-//    }
-
     // MARK: - Fetch
 
-    static let demoSessionKey = "sk-ant-demo01-xK9pQr2vT8wLnY7cBZhJ5dF0uCmNqWsA3e6R1P4xK9pQr2vT8wLnY7-AA"
-
     private var isDemoMode: Bool {
-        storedSessionKey == UsageViewModel.demoSessionKey
+        accountStore.activeId == Account.demoId
     }
 
     func fetchUsage() {
@@ -247,28 +329,33 @@ final class UsageViewModel: ObservableObject {
                 lastUsageData = data
                 applyUsageData(data)
                 lastUpdated = Date()
+                if let id = accountStore.activeId {
+                    accountStore.recordSnapshot(id: id, data: data)
+                }
                 consecutiveFailures = 0
+                isUnauthorized = false
+                if isServiceDown, let id = accountStore.activeId {
+                    notificationManager.clearServiceDown(accountId: id)
+                }
                 isServiceDown = false
 
-                if data.fiveHour == nil && data.sevenDay == nil {
+                if hasNoUsageSignal(data) {
                     errorMessage = "Could not read usage data. Session key may be expired."
                 } else {
                     errorMessage = nil
                 }
 
-                // Adaptive polling: increase frequency when usage is high
                 adjustRefreshRate()
                 await checkForUpdate()
             } catch ClawdAPIError.rateLimited {
                 errorMessage = ClawdAPIError.rateLimited.localizedDescription
                 consecutiveFailures += 1
                 updateServiceDownStatus()
-                // Back off for 60s on rate limit
                 rescheduleRefresh(interval: 60)
             } catch ClawdAPIError.unauthorized {
-                // Auth errors are not service outages — reset counter
                 consecutiveFailures = 0
                 isServiceDown = false
+                isUnauthorized = true
                 errorMessage = ClawdAPIError.unauthorized.localizedDescription
             } catch {
                 consecutiveFailures += 1
@@ -283,6 +370,7 @@ final class UsageViewModel: ObservableObject {
 
     /// Fetch only if enough time has passed since last fetch (for popover open)
     func fetchUsageIfStale() {
+        accountStore.refreshInactivesIfStale()
         if let last = lastUpdated, Date().timeIntervalSince(last) < minFetchInterval {
             return
         }
@@ -412,7 +500,9 @@ final class UsageViewModel: ObservableObject {
             "exported_at": ISO8601DateFormatter().string(from: Date()),
             "app": "Clawdephobia"
         ]
-
+        if let acc = accountStore.activeAccount {
+            dict["account"] = ["id": acc.id, "label": acc.label]
+        }
         if let tier = rateLimitTier {
             dict["rate_limit_tier"] = tier
         }
@@ -466,6 +556,9 @@ final class UsageViewModel: ObservableObject {
             "clawdephobia.notify_on_reset",
             "clawdephobia.push_enabled", "clawdephobia.push_topic",
             "clawdephobia.push_server_url",
+            // Multi-account keys
+            "clawdephobia.accounts", "clawdephobia.active_account_id",
+            "clawdephobia.accounts_schema_v1",
             // Legacy keys
             "claudemeter.setup_complete", "claudemeter.menu_bar_display",
             "claudemeter.notifications_enabled", "claudemeter.session_key",
@@ -473,6 +566,7 @@ final class UsageViewModel: ObservableObject {
         ]
         keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
 
+        accountStore.removeAll()
         KeychainHelper.delete(key: "session_key")
         try? SMAppService.mainApp.unregister()
         removeLegacyLaunchAgent()
@@ -480,36 +574,8 @@ final class UsageViewModel: ObservableObject {
         refreshTimer = nil
         countdownTimer?.invalidate()
         countdownTimer = nil
-        scraper = nil
-        apiClient = nil
-        notificationManager.reset()
-        sessionPercent = 0
-        weeklyPercent = 0
-        opusPercent = nil
-        sonnetPercent = nil
-        oauthAppsPercent = nil
-        coworkPercent = nil
-        extraUsagePercent = nil
-        omelettePercent = nil
-        rateLimitTier = nil
-        sessionResetDescription = ""
-        weeklyResetDescription = ""
-        sessionResetsAt = nil
-        weeklyResetsAt = nil
-        opusResetsAt = nil
-        sonnetResetsAt = nil
-        oauthAppsResetsAt = nil
-        coworkResetsAt = nil
-        extraUsageResetsAt = nil
-        omeletteResetsAt = nil
-        lastUpdated = nil
-        errorMessage = nil
-        lastUsageData = nil
-        isSetupComplete = false
+        clearActiveState()
         launchAtLogin = false
-        isPacingWarning = false
-        isServiceDown = false
-        consecutiveFailures = 0
     }
 
     // MARK: - Private
@@ -524,23 +590,39 @@ final class UsageViewModel: ObservableObject {
         // one hasn't started yet (e.g. 5-hour session before the first message). Treat
         // it as "no active window" — otherwise formatResetTime would emit "Resetting..."
         // on every refresh and the UI gets stuck on that label.
+        //
+        // `.distantFuture` is our sentinel for "no reset window reported" (some plans
+        // return `resets_at: null` alongside utilization). Hide the reset label in that case.
         func resolvedReset(_ date: Date) -> (Date?, String) {
+            if date == .distantFuture { return (nil, "") }
             if date.timeIntervalSinceNow <= 0 { return (nil, "") }
             return (date, formatResetTime(date))
         }
 
         if let session = data.fiveHour {
+            updateIfNeeded(&hasSessionLimit, true)
             updateIfNeeded(&sessionPercent, session.percentUsed)
             let (date, desc) = resolvedReset(session.resetsAt)
             sessionResetsAt = date
             updateIfNeeded(&sessionResetDescription, desc)
+        } else {
+            updateIfNeeded(&hasSessionLimit, false)
+            updateIfNeeded(&sessionPercent, 0)
+            sessionResetsAt = nil
+            updateIfNeeded(&sessionResetDescription, "")
         }
 
         if let weekly = data.sevenDay {
+            updateIfNeeded(&hasWeeklyLimit, true)
             updateIfNeeded(&weeklyPercent, weekly.percentUsed)
             let (date, desc) = resolvedReset(weekly.resetsAt)
             weeklyResetsAt = date
             updateIfNeeded(&weeklyResetDescription, desc)
+        } else {
+            updateIfNeeded(&hasWeeklyLimit, false)
+            updateIfNeeded(&weeklyPercent, 0)
+            weeklyResetsAt = nil
+            updateIfNeeded(&weeklyResetDescription, "")
         }
 
         if let opus = data.sevenDayOpus {
@@ -609,47 +691,88 @@ final class UsageViewModel: ObservableObject {
             omeletteResetsAt = nil
         }
 
+        if let promo = data.sevenDayOmelettePromotional {
+            updateIfNeeded(&promotionalOmelettePercent, promo.percentUsed)
+            let (date, desc) = resolvedReset(promo.resetsAt)
+            promotionalOmeletteResetsAt = date
+            updateIfNeeded(&promotionalOmeletteResetDescription, desc)
+        } else {
+            promotionalOmelettePercent = nil
+            promotionalOmeletteResetDescription = nil
+            promotionalOmeletteResetsAt = nil
+        }
+
+        if let detail = data.extraUsageDetail {
+            updateIfNeeded(&extraCreditsEnabled, detail.isEnabled)
+            updateIfNeeded(&extraCreditsUsed, detail.usedCredits)
+            updateIfNeeded(&extraCreditsMonthlyLimit, detail.monthlyLimit)
+            updateIfNeeded(&extraCreditsCurrency, detail.currency)
+            updateIfNeeded(&creditsResetDescription, nextMonthlyResetDescription())
+        } else {
+            extraCreditsEnabled = false
+            extraCreditsUsed = nil
+            extraCreditsMonthlyLimit = nil
+            extraCreditsCurrency = nil
+            creditsResetDescription = ""
+        }
+
         updateIfNeeded(&rateLimitTier, data.rateLimitTier)
 
         // Pacing indicator
         let newPacing = calculatePacingWarning(data)
         updateIfNeeded(&isPacingWarning, newPacing)
 
-        // Notifications
-        if notificationsEnabled {
-            notificationManager.checkAndNotify(
-                label: "5-hour session",
-                percentUsed: sessionPercent,
-                warningThreshold: warningThreshold,
-                criticalThreshold: criticalThreshold,
-                notifyOnReset: notifyOnReset
-            )
-            notificationManager.checkAndNotify(
-                label: "7-day weekly",
-                percentUsed: weeklyPercent,
-                warningThreshold: warningThreshold,
-                criticalThreshold: criticalThreshold,
-                notifyOnReset: notifyOnReset
-            )
-            if let opus = opusPercent {
+        // Notifications (label-prefixed by active account)
+        if notificationsEnabled, let account = accountStore.activeAccount {
+            func notify(_ label: String, _ percent: Double?) {
+                guard let p = percent else { return }
                 notificationManager.checkAndNotify(
-                    label: "Opus weekly",
-                    percentUsed: opus,
+                    accountId: account.id,
+                    accountLabel: account.label,
+                    label: label,
+                    percentUsed: p,
                     warningThreshold: warningThreshold,
                     criticalThreshold: criticalThreshold,
                     notifyOnReset: notifyOnReset
                 )
             }
-            if let sonnet = sonnetPercent {
-                notificationManager.checkAndNotify(
-                    label: "Sonnet weekly",
-                    percentUsed: sonnet,
-                    warningThreshold: warningThreshold,
-                    criticalThreshold: criticalThreshold,
-                    notifyOnReset: notifyOnReset
-                )
-            }
+            notify("5-hour session", sessionPercent)
+            notify("7-day weekly", weeklyPercent)
+            notify("Opus weekly", opusPercent)
+            notify("Sonnet weekly", sonnetPercent)
         }
+    }
+
+    /// True when the API returned absolutely nothing useful — every rate limit nil,
+    /// no credits, no promotional quota. That's our cue that the key is bad or the
+    /// account isn't tracked. Enterprise (credit-only) plans still pass this check
+    /// because their `extra_usage` carries `used_credits`.
+    private func hasNoUsageSignal(_ data: ClawdUsageData) -> Bool {
+        if data.fiveHour != nil || data.sevenDay != nil { return false }
+        if data.sevenDayOpus != nil || data.sevenDaySonnet != nil { return false }
+        if data.sevenDayOAuthApps != nil || data.sevenDayCowork != nil { return false }
+        if data.sevenDayOmelette != nil || data.sevenDayOmelettePromotional != nil { return false }
+        if data.extraUsage != nil { return false }
+        if let detail = data.extraUsageDetail,
+           detail.isEnabled || (detail.usedCredits ?? 0) > 0 || detail.monthlyLimit != nil {
+            return false
+        }
+        return true
+    }
+
+    /// First day of next month, formatted "Resets MMM d" in the user's locale.
+    /// Used as the subtitle for the pay-as-you-go credits row — the API does not
+    /// return a reset date for `extra_usage`, but Anthropic resets the spend
+    /// counter on the 1st of every calendar month.
+    private func nextMonthlyResetDescription() -> String {
+        let cal = Calendar.current
+        var comps = cal.dateComponents([.year, .month], from: Date())
+        comps.month = (comps.month ?? 1) + 1
+        comps.day = 1
+        guard let next = cal.date(from: comps) else { return "" }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "MMM d"
+        return "Resets " + fmt.string(from: next)
     }
 
     /// Returns true if the 5-hour session usage rate projects to exceed 100% before reset.
@@ -688,16 +811,15 @@ final class UsageViewModel: ObservableObject {
     private func startAutoRefresh() {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(refreshInterval), repeats: true) { [weak self] _ in
-            self?.fetchUsage()
+            Task { @MainActor in self?.fetchUsage() }
         }
     }
 
     private func updateServiceDownStatus() {
         let wasDown = isServiceDown
         isServiceDown = consecutiveFailures >= serviceDownThreshold
-        // Notify once when transitioning to service-down state
-        if isServiceDown && !wasDown && notificationsEnabled {
-            notificationManager.sendServiceDown()
+        if isServiceDown && !wasDown && notificationsEnabled, let account = accountStore.activeAccount {
+            notificationManager.sendServiceDown(accountId: account.id, accountLabel: account.label)
         }
     }
 
@@ -705,8 +827,10 @@ final class UsageViewModel: ObservableObject {
     private func rescheduleRefresh(interval: TimeInterval) {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: false) { [weak self] _ in
-            self?.fetchUsage()
-            self?.startAutoRefresh()
+            Task { @MainActor in
+                self?.fetchUsage()
+                self?.startAutoRefresh()
+            }
         }
     }
 
@@ -722,12 +846,11 @@ final class UsageViewModel: ObservableObject {
             effectiveInterval = TimeInterval(refreshInterval)
         }
 
-        // Only restart timer if interval actually changed
         let currentInterval = refreshTimer?.timeInterval ?? 0
         if abs(currentInterval - effectiveInterval) > 1 {
             refreshTimer?.invalidate()
             refreshTimer = Timer.scheduledTimer(withTimeInterval: effectiveInterval, repeats: true) { [weak self] _ in
-                self?.fetchUsage()
+                Task { @MainActor in self?.fetchUsage() }
             }
         }
     }
@@ -737,7 +860,7 @@ final class UsageViewModel: ObservableObject {
     private func startCountdownTimer() {
         countdownTimer?.invalidate()
         countdownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            self?.updateCountdowns()
+            Task { @MainActor in self?.updateCountdowns() }
         }
     }
 
@@ -835,34 +958,33 @@ final class UsageViewModel: ObservableObject {
     // MARK: - System Event Observers
 
     private func observeSystemEvents() {
-        // Refresh on wake from sleep
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.fetchUsage()
-            self?.startAutoRefresh() // Reset timer cadence after wake
+            Task { @MainActor in
+                self?.fetchUsage()
+                self?.startAutoRefresh()
+            }
         }
 
-        // Refresh on network reconnect
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self = self else { return }
             let isSatisfied = path.status == .satisfied
-            if isSatisfied && self.wasNetworkUnsatisfied {
-                DispatchQueue.main.async {
+            Task { @MainActor in
+                if isSatisfied && self.wasNetworkUnsatisfied {
                     self.fetchUsageIfStale()
                 }
+                self.wasNetworkUnsatisfied = !isSatisfied
             }
-            self.wasNetworkUnsatisfied = !isSatisfied
         }
         monitor.start(queue: DispatchQueue(label: "com.clawdephobia.network"))
         networkMonitor = monitor
     }
 
     private func loadSettings() {
-        isSetupComplete = UserDefaults.standard.bool(forKey: "clawdephobia.setup_complete")
         notificationsEnabled = UserDefaults.standard.object(forKey: "clawdephobia.notifications_enabled") as? Bool ?? true
         menuBarDisplayMode = UserDefaults.standard.integer(forKey: "clawdephobia.menu_bar_display")
         menuBarProgressStyle = UserDefaults.standard.integer(forKey: "clawdephobia.menubar_progress_style")
@@ -884,11 +1006,8 @@ final class UsageViewModel: ObservableObject {
         let key = "clawdephobia.data_schema_version"
         let stored = UserDefaults.standard.integer(forKey: key)
         guard stored < Self.dataSchemaVersion else { return }
-
-        // Preserve the session key so users don't have to re-enter it
-        let savedKey = storedSessionKey
-
-        // Wipe all UserDefaults
+        // Preserve any legacy single-account session key — AccountStore.migrateIfNeeded()
+        // will pick it up from Keychain regardless of which UserDefaults are wiped.
         let allKeys = [
             "clawdephobia.setup_complete", "clawdephobia.menu_bar_display",
             "clawdephobia.icon_style",
@@ -899,13 +1018,6 @@ final class UsageViewModel: ObservableObject {
             "clawdephobia.push_server_url",
         ]
         allKeys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
-
-        // Restore session key and mark setup complete if we had one
-        if let savedKey = savedKey {
-            storeSessionKey(savedKey)
-            UserDefaults.standard.set(true, forKey: "clawdephobia.setup_complete")
-        }
-
         UserDefaults.standard.set(Self.dataSchemaVersion, forKey: key)
     }
 
@@ -949,14 +1061,6 @@ final class UsageViewModel: ObservableObject {
         removeLegacyLaunchAgent()
     }
 
-    private var storedSessionKey: String? {
-        KeychainHelper.load(key: "session_key")
-    }
-
-    private func storeSessionKey(_ key: String) {
-        KeychainHelper.save(key: "session_key", value: key)
-    }
-
     private func dateStamp() -> String {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
@@ -966,23 +1070,24 @@ final class UsageViewModel: ObservableObject {
     private func makeDemoData() -> ClawdUsageData {
         let now = Date()
         return ClawdUsageData(
-            fiveHour:          RateLimitInfo(percentUsed: 0.72, resetsAt: now.addingTimeInterval(3600 * 2.5)),
-            sevenDay:          RateLimitInfo(percentUsed: 0.45, resetsAt: now.addingTimeInterval(3600 * 52)),
-            sevenDayOpus:      RateLimitInfo(percentUsed: 0.61, resetsAt: now.addingTimeInterval(3600 * 52)),
-            sevenDaySonnet:    RateLimitInfo(percentUsed: 0.33, resetsAt: now.addingTimeInterval(3600 * 52)),
-            sevenDayOAuthApps: RateLimitInfo(percentUsed: 0.10, resetsAt: now.addingTimeInterval(3600 * 52)),
-            sevenDayCowork:    RateLimitInfo(percentUsed: 0.05, resetsAt: now.addingTimeInterval(3600 * 52)),
-            extraUsage:        RateLimitInfo(percentUsed: 0.88, resetsAt: now.addingTimeInterval(3600 * 12)),
-            rateLimitTier:     "pro",
-            sevenDayOmelette:  RateLimitInfo(percentUsed: 0.25, resetsAt: now.addingTimeInterval(3600 * 52)),
-            iguanaNecktie:     nil
+            fiveHour:                    RateLimitInfo(percentUsed: 0.72, resetsAt: now.addingTimeInterval(3600 * 2.5)),
+            sevenDay:                    RateLimitInfo(percentUsed: 0.45, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDayOpus:                RateLimitInfo(percentUsed: 0.61, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDaySonnet:              RateLimitInfo(percentUsed: 0.33, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDayOAuthApps:           RateLimitInfo(percentUsed: 0.10, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDayCowork:              RateLimitInfo(percentUsed: 0.05, resetsAt: now.addingTimeInterval(3600 * 52)),
+            extraUsage:                  RateLimitInfo(percentUsed: 0.88, resetsAt: now.addingTimeInterval(3600 * 12)),
+            extraUsageDetail:            ExtraUsageInfo(isEnabled: true, usedCredits: 12.34, monthlyLimit: 100.0, currency: "USD"),
+            rateLimitTier:               "pro",
+            sevenDayOmelette:            RateLimitInfo(percentUsed: 0.25, resetsAt: now.addingTimeInterval(3600 * 52)),
+            sevenDayOmelettePromotional: nil,
+            iguanaNecktie:               nil
         )
     }
 
     // MARK: - Legacy LaunchAgent Cleanup
 
     private func removeLegacyLaunchAgent() {
-        // Skip in sandboxed builds — ~/Library/LaunchAgents is inaccessible
         guard !ProcessInfo.processInfo.environment.keys.contains("APP_SANDBOX_CONTAINER_ID") else { return }
         let path = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/com.claudemeter.app.plist").path

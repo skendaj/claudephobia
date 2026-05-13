@@ -1,11 +1,17 @@
 import Foundation
 
+/// Account-level identity returned by `/api/organizations`.
+struct OrgInfo: Equatable {
+    let uuid: String
+    let name: String?
+}
+
 /// Fetches Clawd usage data via direct API calls.
 /// Uses /api/organizations to get the org ID, then /api/organizations/{id}/usage
 /// for utilization data and /api/organizations/{id}/rate_limits for tier info.
 final class UsageScraper {
     private let sessionKey: String
-    private var cachedOrgId: String?
+    private var cachedOrgInfo: OrgInfo?
 
     init(sessionKey: String) {
         self.sessionKey = sessionKey
@@ -15,16 +21,27 @@ final class UsageScraper {
         return UsageScraper(sessionKey: key)
     }
 
+    /// Fetches the active org's UUID and display name. Cached for the scraper's lifetime.
+    /// Used by AccountStore to add or migrate accounts.
+    func fetchOrgInfo() async throws -> OrgInfo {
+        if let cached = cachedOrgInfo { return cached }
+        let (data, status) = try await apiGet(path: "/api/organizations")
+        if status == 401 || status == 403 { throw ClawdAPIError.unauthorized }
+        guard let orgs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              let firstOrg = orgs.first,
+              let uuid = firstOrg["uuid"] as? String else {
+            throw ClawdAPIError.invalidResponse("Could not parse organization ID")
+        }
+        let name = (firstOrg["name"] as? String).flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 }
+        let info = OrgInfo(uuid: uuid, name: name)
+        cachedOrgInfo = info
+        return info
+    }
+
     // MARK: - Public
 
     func scrape() async throws -> ClawdUsageData {
-        let orgId: String
-        if let cached = cachedOrgId {
-            orgId = cached
-        } else {
-            orgId = try await fetchOrgId()
-            cachedOrgId = orgId
-        }
+        let orgId = try await fetchOrgInfo().uuid
 
         // Fetch usage and rate limits in parallel
         async let usageResult = fetchUsage(orgId: orgId)
@@ -41,8 +58,10 @@ return ClawdUsageData(
             sevenDayOAuthApps: usage.sevenDayOAuthApps,
             sevenDayCowork: usage.sevenDayCowork,
             extraUsage: usage.extraUsage,
+            extraUsageDetail: usage.extraUsageDetail,
             rateLimitTier: tier,
             sevenDayOmelette: usage.sevenDayOmelette,
+            sevenDayOmelettePromotional: usage.sevenDayOmelettePromotional,
             iguanaNecktie: usage.iguanaNecktie
         )
     }
@@ -67,22 +86,6 @@ return ClawdUsageData(
     }
 
     // MARK: - API Calls
-
-    private func fetchOrgId() async throws -> String {
-        let (data, status) = try await apiGet(path: "/api/organizations")
-
-        if status == 401 || status == 403 {
-            throw ClawdAPIError.unauthorized
-        }
-
-        guard let orgs = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-              let firstOrg = orgs.first,
-              let orgId = firstOrg["uuid"] as? String else {
-            throw ClawdAPIError.invalidResponse("Could not parse organization ID")
-        }
-
-        return orgId
-    }
 
     private func fetchUsage(orgId: String) async throws -> ClawdUsageData {
         let (data, status) = try await apiGet(path: "/api/organizations/\(orgId)/usage")
@@ -110,8 +113,10 @@ return ClawdUsageData(
             sevenDayOAuthApps: parseLimit(dict["seven_day_oauth_apps"]),
             sevenDayCowork: parseLimit(dict["seven_day_cowork"]),
             extraUsage: parseLimit(dict["extra_usage"]),
+            extraUsageDetail: parseExtraUsage(dict["extra_usage"]),
             rateLimitTier: nil,
             sevenDayOmelette: parseLimit(dict["seven_day_omelette"]),
+            sevenDayOmelettePromotional: parseLimit(dict["omelette_promotional"]),
             iguanaNecktie: parseLimit(dict["iguana_necktie"])
         )
     }
@@ -137,17 +142,41 @@ return ClawdUsageData(
 
         let percent = utilization >= 1 ? utilization / 100.0 : utilization
 
-        guard let str = dict["resets_at"] as? String else { return nil }
-        
+        // Skip zero-utilization rows that have no reset window (e.g. enterprise
+        // `omelette_promotional` with utilization 0 and resets_at null). Showing
+        // them in the UI would clutter the popover with empty rows.
+        let rawReset = dict["resets_at"] as? String
+        guard let str = rawReset else {
+            if percent <= 0 { return nil }
+            return makeRateLimitInfo(percent: percent, resetsAt: .distantFuture)
+        }
+
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let resetsAt = iso.date(from: str) else {
-            iso.formatOptions = [.withInternetDateTime]
-            guard let resetsAt = iso.date(from: str) else { return nil }
+        if let resetsAt = iso.date(from: str) {
             return makeRateLimitInfo(percent: percent, resetsAt: resetsAt)
         }
-        
+        iso.formatOptions = [.withInternetDateTime]
+        guard let resetsAt = iso.date(from: str) else { return nil }
         return makeRateLimitInfo(percent: percent, resetsAt: resetsAt)
+    }
+
+    /// Pay-as-you-go credit accounting. Returned even when `utilization` is null so
+    /// enterprise/credit-based plans can be displayed in the popover.
+    private func parseExtraUsage(_ value: Any?) -> ExtraUsageInfo? {
+        guard let dict = value as? [String: Any] else { return nil }
+        let isEnabled = dict["is_enabled"] as? Bool ?? false
+        let credits = dict["used_credits"] as? Double
+        let monthlyLimit = dict["monthly_limit"] as? Double
+        let currency = dict["currency"] as? String
+        // Skip when nothing meaningful is reported
+        if !isEnabled && credits == nil && monthlyLimit == nil { return nil }
+        return ExtraUsageInfo(
+            isEnabled: isEnabled,
+            usedCredits: credits,
+            monthlyLimit: monthlyLimit,
+            currency: currency
+        )
     }
     
     private func makeRateLimitInfo(percent: Double, resetsAt: Date) -> RateLimitInfo {
