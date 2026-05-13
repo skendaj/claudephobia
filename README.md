@@ -6,7 +6,7 @@
 
 <p align="center"><em>The fear of hitting your Claude limits.</em></p>
 
-<p align="center">A lightweight macOS menu bar app that monitors your AI assistant usage limits in real time.<br>See your 5-hour session and 7-day weekly usage at a glance — no browser tab required.</p>
+<p align="center">A lightweight macOS menu bar app that monitors your AI assistant usage limits in real time.<br>See your 5-hour session and 7-day weekly usage at a glance — no browser tab required.<br>Track multiple Claude accounts (personal, work, enterprise) from a single switcher.</p>
 
 <p align="center">
   <a href="https://github.com/skendaj/clawdephobia/releases/latest/download/Clawdephobia.dmg">
@@ -22,7 +22,9 @@ Clawdephobia uses your Claude session cookie to read usage data directly from th
 - **7-day weekly limit** — the rolling long-term rate limit
 - **Model-specific limits** — Opus, Sonnet, Claude Design, OAuth Apps, and Cowork weekly limits (when available)
 - **Extra usage** — additional usage beyond your plan (when applicable)
+- **Enterprise / pay-as-you-go credits** — spend amount, monthly cap (when set), and next reset date for credits-based plans
 - **Pacing indicator** — warns if you're burning through your session limit too fast
+- **Multiple accounts** — switch between personal, work, and enterprise accounts from a single menu bar app
 
 No data is sent to any third party. Everything runs locally on your Mac.
 
@@ -36,6 +38,8 @@ No data is sent to any third party. Everything runs locally on your Mac.
 The key looks like `sk-ant-sid01-...`. Paste it into clawdephobia when prompted.
 
 > Your session key is stored in the macOS Keychain and never leaves your machine.
+
+> **Stay signed in.** Session keys expire when you sign out of claude.ai. Keep the account signed in on the browser you grabbed the key from — otherwise the app will prompt you to paste a fresh one.
 
 > **No session key?** Hit **Try Demo Mode** on the setup screen to explore the app with realistic mock data — no account required.
 
@@ -51,30 +55,62 @@ The app is code-signed and notarized by Apple, so subsequent launches work norma
 
 ### Build from source
 
-Requires **macOS 13+** and **Swift 5.9+**.
+Requires **macOS 13+**, **Swift 5.9+**, and **[XcodeGen](https://github.com/yonaskolb/XcodeGen)** (`brew install xcodegen`).
 
 ```bash
-# Build the .app bundle
-./scripts/build-app.sh
+# Regenerate the Xcode project (project.yml → Clawdephobia.xcodeproj)
+xcodegen generate
 
-# The app is in dist/clawdephobia.app — double-click or:
-open dist/clawdephobia.app
+# Build the signed/notarized .app bundle
+./scripts/build-app.sh
+# Result: dist/Clawdephobia.app
 ```
 
 Or for development:
 
 ```bash
-swift build
-.build/debug/clawdephobia
+xcodegen generate
+open Clawdephobia.xcodeproj
+# In Xcode, hit Cmd+R
 ```
 
-You can also open `Package.swift` in Xcode and hit Run (`Cmd + R`).
+> `swift build` is no longer supported — the project uses XcodeGen + xcodebuild to support the widget extension target. `Clawdephobia.xcodeproj` is gitignored; regenerate after pulling.
 
 ## Features
 
+### Multiple Accounts
+
+Manage every Claude account you have — personal, work, client, enterprise — from one menu bar app.
+
+- **Account switcher** in the popover header — one click to flip between accounts. Dropdown shows compact `82% / 41%` peek of each account's 5h/7d usage so you know which one is hot before switching
+- **Auto-detected labels** — Clawdephobia reads the org name from the Claude API on add (e.g. `My Workspace`). Rename freely from Settings → Accounts
+- **Per-account state** — notification throttles, reset countdowns, and last-known data live separately for each account. Switching back to an account restores its data instantly (no flash of zero)
+- **Smart polling** — the active account refreshes on the configured cadence; inactive accounts are sampled every 10 minutes (and on popover open with a 30-second cooldown) so the switcher peek stays fresh without burning API calls
+- **Label-prefixed notifications** — alerts include the account name (`Work — 5-hour session at 92%`) so you always know which account just tripped a threshold
+- **Auto-switch on add** — pasting a new session key immediately makes that account active so you can confirm it works
+- **Add accounts from anywhere** — from the popover switcher's "Add account…" sheet or from Settings → Accounts
+
+### Enterprise / Pay-as-You-Go
+
+Enterprise plans on Claude bill by credits instead of percentage-capped windows. Clawdephobia detects this automatically and switches to a credits view:
+
+- **Spend amount** — formatted in the plan's currency (e.g. `$14.37`)
+- **`Unlimited` badge** when there's no monthly cap, **`Capped`** with a progress bar when there is
+- **Monthly reset date** — computed as the 1st of next month (e.g. `Resets Jun 1`)
+- 5-hour and 7-day rows are hidden for true credits-only accounts but Pro accounts that *also* enable `extra_usage` keep both views simultaneously
+
+### Expired Sessions
+
+When a session key stops working (you signed out of claude.ai, the cookie rotated, etc.):
+
+- The popover shows an orange `Session expired` banner with an **Update →** button
+- Tapping the banner opens the add-account sheet pre-wired to **upsert** — paste the new key and Clawdephobia rotates the Keychain entry for the same org without losing your label or settings
+- If a successful snapshot existed before expiry, the cached usage bars stay visible (dimmed) underneath the banner so you can still see your last-known state
+- Account switching never blanks the popover — last-known data hydrates from the in-memory snapshot before the next fetch completes
+
 ### Menu Bar
 
-- Dual progress bars showing session (top) and weekly (bottom) usage
+- Dual progress bars showing session (top) and weekly (bottom) usage for the **active account**
 - Color-coded status dot — green (normal), orange (>70%), red (>90%), grey (service down)
 - Optional percentage text next to the icon (three display modes: icon only, icon + percentages, icon + compact)
 - Configurable progress style — bars or circular indicators, set independently for the menu bar icon and the popover content view
@@ -86,13 +122,17 @@ You can also open `Package.swift` in Xcode and hit Run (`Cmd + R`).
 
 Click the menu bar icon to see:
 
-- Detailed usage for all active limits with color-coded progress bars
+- **Account switcher** at the top — pick the active account, add new ones, or open the Settings → Accounts tab
+- Detailed usage for all active limits with color-coded progress bars (5h, 7d, Opus, Sonnet, OAuth Apps, Cowork, Claude Design, Extra usage, Promotional)
+- **Active / Inactive grouping** — rows in use render at the top; everything at 0% collapses into an `Inactive limits · N` accordion (default closed) so the popover stays compact
 - Live reset countdown timers for each limit (updates every second)
 - Rate limit tier display
+- Enterprise / pay-as-you-go credits row when applicable
+- Session-expired banner with one-click **Update Key** button
 - Service-down banner when Claude is unreachable
 - Error banners for auth/connection issues
 - Share menu to export your usage as an image or JSON
-- Manual refresh button and "last updated" timestamp
+- Manual refresh button, "last updated" timestamp, and per-account "Remove" with confirmation
 
 ### Share Card
 
@@ -114,7 +154,7 @@ Native macOS notifications with sound and app icon for:
 - **Restored** — when a rate limit window resets and usage drops below 5% (only fires if it was previously above 20%)
 - **Service Down** — when Claude becomes unreachable (fires once per incident)
 
-Notifications are stateful — they fire once per threshold crossing and reset when usage drops.
+Notifications are stateful — they fire once per threshold crossing and reset when usage drops. **Per-account throttle state** means each account fires its own notifications independently and tracks its own thresholds.
 
 Use the **Send Test Notification** button in Settings to verify notifications work.
 
@@ -158,8 +198,8 @@ Six-tab settings window:
 - **General** — text display mode, progress style (bars/circles), auto-refresh interval, launch at login
 - **Notifications** — enable/disable, warning and critical thresholds, monitored limits list, reset notifications toggle, test notification button
 - **Phone** — enable phone push notifications via ntfy.sh, topic and server URL configuration, test button
-- **Account** — update your session key (stored securely in Keychain)
-- **Data** — export usage as JSON, reset all data (clears Keychain, UserDefaults, launch-at-login registration)
+- **Accounts** — list every configured account with active selection (radio), 5h/7d peek, inline rename, remove (with confirm), `+ Add account` button, and demo mode toggle. Each account's session key lives in Keychain under its org UUID
+- **Data** — export usage as JSON, reset all data (clears Keychain, UserDefaults, launch-at-login registration, and every account's session key)
 - **About** — privacy statement, open-source info, author credit
 
 ### Automatic Update Checks
@@ -176,31 +216,42 @@ Toggle in Settings → General. Uses the macOS SMAppService API (macOS 13+) — 
 Sources/
 ├── main.swift                          # Entry point (manual NSApplication lifecycle)
 ├── App/
-│   ├── AppDelegate.swift               # Status item, popover, settings window
+│   ├── AppDelegate.swift               # Status item, popover, settings window, wires AccountStore + ViewModel
 │   └── MenuBarRenderer.swift           # Menu bar icon drawing (CoreGraphics)
+├── Models/
+│   └── Account.swift                   # Account + AccountPeek structs
 ├── Services/
-│   ├── ClaudeAPIClient.swift           # Claude API client & data models
-│   ├── UsageScraper.swift              # Fetches /usage and /rate_limits
-│   ├── KeychainHelper.swift            # macOS Keychain wrapper
-│   ├── NotificationManager.swift       # macOS notifications + ntfy.sh push
+│   ├── ClawdAPIClient.swift            # Claude API client, ClawdUsageData, ExtraUsageInfo, OrgInfo
+│   ├── UsageScraper.swift              # Fetches /organizations, /usage, /rate_limits
+│   ├── AccountStore.swift              # Multi-account CRUD, active selection, snapshot cache, inactive polling
+│   ├── KeychainHelper.swift            # macOS Keychain wrapper (per-account keys)
+│   ├── NotificationManager.swift       # macOS notifications + ntfy.sh push (per-account throttle state)
 │   └── PushNotificationService.swift   # Phone push via ntfy.sh (iOS/Android)
 ├── ViewModels/
-│   └── UsageViewModel.swift            # Central state, settings, refresh logic
+│   └── UsageViewModel.swift            # Central state, settings, refresh logic, snapshot hydration
 └── Views/
-    ├── PopoverView.swift               # Setup flow & usage dashboard
-    ├── SettingsView.swift              # Tabbed settings window
+    ├── PopoverView.swift               # Setup flow, switcher, usage dashboard, expired banner, credits row
+    ├── SettingsView.swift              # Tabbed settings window (Accounts tab manages list)
     └── ShareCardView.swift             # Share card generation & rendering
 ```
 
-The app uses an **AppKit + SwiftUI hybrid** approach `NSStatusItem` for the menu bar, `NSPopover` with `NSHostingController` for the popover, and pure SwiftUI for all views. State flows through a single `UsageViewModel` observed by all views via Combine. Zero external dependencies.
+The app uses an **AppKit + SwiftUI hybrid** approach — `NSStatusItem` for the menu bar, `NSPopover` with `NSHostingController` for the popover, and pure SwiftUI for all views. State flows through `AccountStore` (multi-account source of truth) and `UsageViewModel` (active-account derived state), both observed by views via Combine. Zero external dependencies.
+
+**Multi-account internals**
+
+- Session keys stored in Keychain under `session_key.<orgUUID>` (per-account)
+- Account list serialized to UserDefaults under `clawdephobia.accounts`; active selection under `clawdephobia.active_account_id`
+- Legacy single-account installs auto-migrate on first launch (gated by `clawdephobia.accounts_schema_v1`) — the old `session_key` Keychain entry is reassigned to its org UUID after fetching it once
+- In-memory `snapshots: [accountId: ClawdUsageData]` survives switches so flipping back to an account paints instantly. Reset on app relaunch
+- `isEnterprise` discriminator: `extraCreditsEnabled && !hasSessionLimit && !hasWeeklyLimit` — keeps Pro plans with `extra_usage` enabled from being mistaken for true credits-only accounts
 
 ## Privacy
 
-- **No third-party servers** — communicates only with `claude.ai`
+- **No third-party servers** — communicates only with `claude.ai` (and `ntfy.sh` if you opt into phone notifications)
 - **No tracking or analytics**
-- **Session key stored in macOS Keychain** — not in plain text
+- **Session keys stored in macOS Keychain** — one entry per account, never in plain text
 - **All data stays on your Mac**
-- **Easy full reset** from Settings → Data → Reset All Data
+- **Easy full reset** from Settings → Data → Reset All Data (clears every account's Keychain entry + UserDefaults + login item)
 
 ## License
 
