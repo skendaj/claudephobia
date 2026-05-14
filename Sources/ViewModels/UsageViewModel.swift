@@ -271,15 +271,20 @@ final class UsageViewModel: ObservableObject {
     /// and by the "Add account" sheet. Throws on bad key / network / API errors so the
     /// caller can surface a message.
     ///
-    /// After the store mutation, re-attach the active account unconditionally. When the
-    /// added account is the same one already active (key-rotation case from the
-    /// "Update Session Key" flow on an expired banner), `setActive(sameId)` is a no-op
-    /// and the `$activeId` Combine sink does not fire — without this manual re-attach
-    /// the popover stays stuck on the previous error state.
+    /// For new accounts the `$activeId` Combine sink handles re-attach. For key rotation
+    /// (same account ID), `setActive(sameId)` is a no-op so we re-attach manually.
     @discardableResult
     func addAccount(sessionKey: String) async throws -> Account {
+        let previousActiveId = accountStore.activeId
         let account = try await accountStore.add(sessionKey: sessionKey)
-        attachActiveAccount()
+        if account.id == previousActiveId {
+            // Key rotation: setActive was a no-op so $activeId Combine sink won't fire.
+            attachActiveAccount()
+        } else {
+            // New account: $activeId Combine sink will call attachActiveAccount().
+            // Eagerly show loading so the view doesn't flash empty bars before Combine fires.
+            isLoading = true
+        }
         return account
     }
 
