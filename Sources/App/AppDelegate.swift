@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         var isServiceDown: Bool
         var menuBarProgressStyle: Int
         var menuBarDisplayMode: Int
+        var isEnterprise: Bool
+        var enterprisePercent: Double
     }
     private var lastRenderedState: MenuBarRenderState?
 
@@ -68,6 +70,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 viewModel.$isServiceDown
             ),
             viewModel.$menuBarProgressStyle
+        )
+        .receive(on: DispatchQueue.main)
+        .sink { [weak self] _, _ in
+            self?.updateMenuBarDisplay()
+        }
+        .store(in: &cancellables)
+
+        // Re-render when enterprise state changes
+        Publishers.CombineLatest(
+            Publishers.CombineLatest(
+                viewModel.$extraCreditsEnabled,
+                viewModel.$hasSessionLimit
+            ),
+            Publishers.CombineLatest(
+                viewModel.$hasWeeklyLimit,
+                viewModel.$extraUsagePercent
+            )
         )
         .receive(on: DispatchQueue.main)
         .sink { [weak self] _, _ in
@@ -135,13 +154,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func updateMenuBarDisplay() {
         guard let button = statusItem.button else { return }
 
+        let isEnterprise = viewModel.isEnterprise
+        let enterprisePercent = viewModel.extraUsagePercent ?? 0
+
         let state = MenuBarRenderState(
             sessionPercent: viewModel.sessionPercent,
             weeklyPercent: viewModel.weeklyPercent,
             isPacingWarning: viewModel.isPacingWarning,
             isServiceDown: viewModel.isServiceDown,
             menuBarProgressStyle: viewModel.menuBarProgressStyle,
-            menuBarDisplayMode: viewModel.menuBarDisplayMode
+            menuBarDisplayMode: viewModel.menuBarDisplayMode,
+            isEnterprise: isEnterprise,
+            enterprisePercent: enterprisePercent
         )
         if state != lastRenderedState {
             lastRenderedState = state
@@ -150,7 +174,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 weeklyPercent: state.weeklyPercent,
                 isPacingWarning: state.isPacingWarning,
                 isServiceDown: state.isServiceDown,
-                menuBarProgressStyle: state.menuBarProgressStyle
+                menuBarProgressStyle: state.menuBarProgressStyle,
+                isEnterprise: state.isEnterprise,
+                enterprisePercent: state.enterprisePercent
             )
             button.imagePosition = .imageLeading
         }
@@ -159,14 +185,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             sessionPercent: viewModel.sessionPercent,
             weeklyPercent: viewModel.weeklyPercent,
             displayMode: viewModel.menuBarDisplayMode,
-            menuBarProgressStyle: viewModel.menuBarProgressStyle
+            menuBarProgressStyle: viewModel.menuBarProgressStyle,
+            isEnterprise: isEnterprise,
+            enterprisePercent: enterprisePercent
         )
         button.toolTip = MenuBarRenderer.tooltip(
             sessionPercent: viewModel.sessionPercent,
             sessionReset: viewModel.sessionResetDescription,
             weeklyPercent: viewModel.weeklyPercent,
             weeklyReset: viewModel.weeklyResetDescription,
-            isServiceDown: viewModel.isServiceDown
+            isServiceDown: viewModel.isServiceDown,
+            isEnterprise: isEnterprise,
+            enterprisePercent: enterprisePercent,
+            enterpriseReset: viewModel.creditsResetDescription
         )
     }
 

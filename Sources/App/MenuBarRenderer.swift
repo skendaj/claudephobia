@@ -6,7 +6,8 @@ enum MenuBarRenderer {
 
     static func createImage(sessionPercent: Double, weeklyPercent: Double,
                             isPacingWarning: Bool, isServiceDown: Bool = false,
-                            menuBarProgressStyle: Int = 0) -> NSImage {
+                            menuBarProgressStyle: Int = 0,
+                            isEnterprise: Bool = false, enterprisePercent: Double = 0) -> NSImage {
         let height: CGFloat = 16
 
         let flameImg: NSImage? = isPacingWarning ? createFlameImage() : nil
@@ -14,13 +15,24 @@ enum MenuBarRenderer {
         let trailingImg = downImg ?? flameImg
         let trailingSpace: CGFloat = trailingImg.map { $0.size.width + 2 } ?? 0
 
-        let baseWidth: CGFloat = menuBarProgressStyle == 1 ? circleIconWidth(session: sessionPercent, weekly: weeklyPercent) : iconWidth
+        let baseWidth: CGFloat
+        if isEnterprise {
+            baseWidth = menuBarProgressStyle == 1 ? singleCircleIconWidth(percent: enterprisePercent) : iconWidth
+        } else {
+            baseWidth = menuBarProgressStyle == 1 ? circleIconWidth(session: sessionPercent, weekly: weeklyPercent) : iconWidth
+        }
         let totalWidth = baseWidth + trailingSpace
 
         let image = NSImage(size: NSSize(width: totalWidth, height: height))
         image.lockFocus()
 
-        if menuBarProgressStyle == 1 {
+        if isEnterprise {
+            if menuBarProgressStyle == 1 {
+                drawSingleCirclePaired(percent: enterprisePercent, height: height, isServiceDown: isServiceDown)
+            } else {
+                drawSingleBar(percent: enterprisePercent, width: iconWidth, height: height, isServiceDown: isServiceDown)
+            }
+        } else if menuBarProgressStyle == 1 {
             drawDualCirclePaired(session: sessionPercent, weekly: weeklyPercent, height: height,
                                  isServiceDown: isServiceDown)
         } else {
@@ -39,9 +51,15 @@ enum MenuBarRenderer {
     }
 
     static func titleText(sessionPercent: Double, weeklyPercent: Double, displayMode: Int,
-                          menuBarProgressStyle: Int = 0) -> String {
-        // Circles mode embeds values in the icon image — no separate title text needed
+                          menuBarProgressStyle: Int = 0,
+                          isEnterprise: Bool = false, enterprisePercent: Double = 0) -> String {
         if menuBarProgressStyle == 1 { return "" }
+        if isEnterprise {
+            switch displayMode {
+            case 1, 2: return " \(pct(enterprisePercent))"
+            default:   return ""
+            }
+        }
         switch displayMode {
         case 1:  return " \(pct(sessionPercent)) \u{00B7} \(pct(weeklyPercent))"
         case 2:  return " \(pct(sessionPercent))/\(pct(weeklyPercent))"
@@ -51,16 +69,23 @@ enum MenuBarRenderer {
 
     static func tooltip(sessionPercent: Double, sessionReset: String,
                         weeklyPercent: Double, weeklyReset: String,
-                        isServiceDown: Bool = false) -> String {
+                        isServiceDown: Bool = false,
+                        isEnterprise: Bool = false, enterprisePercent: Double = 0,
+                        enterpriseReset: String = "") -> String {
         var lines: [String] = []
         if isServiceDown {
             lines.append("Clawd service appears down")
             lines.append("")
         }
-        lines.append("5-hour session: \(pct(sessionPercent)) used")
-        if !sessionReset.isEmpty { lines.append(sessionReset) }
-        lines.append("7-day weekly: \(pct(weeklyPercent)) used")
-        if !weeklyReset.isEmpty { lines.append(weeklyReset) }
+        if isEnterprise {
+            lines.append("Credits used: \(pct(enterprisePercent))")
+            if !enterpriseReset.isEmpty { lines.append(enterpriseReset) }
+        } else {
+            lines.append("5-hour session: \(pct(sessionPercent)) used")
+            if !sessionReset.isEmpty { lines.append(sessionReset) }
+            lines.append("7-day weekly: \(pct(weeklyPercent)) used")
+            if !weeklyReset.isEmpty { lines.append(weeklyReset) }
+        }
         return lines.joined(separator: "\n")
     }
 
@@ -244,5 +269,54 @@ enum MenuBarRenderer {
             barColor(for: percent).withAlphaComponent(alpha).setFill()
             fillPath.fill()
         }
+    }
+
+    // MARK: - Enterprise Single Indicators
+
+    private static func singleCircleIconWidth(percent: Double) -> CGFloat {
+        let circleD: CGFloat = 14
+        let textGap: CGFloat = 3
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        let attrs: [NSAttributedString.Key: Any] = [.font: font]
+        let w = (pct(percent) as NSString).size(withAttributes: attrs).width
+        return ceil(circleD + textGap + w + 2)
+    }
+
+    private static func drawSingleCirclePaired(percent: Double, height: CGFloat, isServiceDown: Bool = false) {
+        let circleD: CGFloat = 12
+        let textGap: CGFloat = 3
+        let alpha: CGFloat = isServiceDown ? 0.4 : 1.0
+        let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+
+        let circleY = (height - circleD) / 2
+        drawCircleArc(in: NSRect(x: 1, y: circleY, width: circleD, height: circleD),
+                      percent: percent, alpha: alpha)
+        let label = pct(percent)
+        let labelSize = (label as NSString).size(withAttributes: [.font: font])
+        let textX = 1 + circleD + textGap
+        let textY = (height - labelSize.height) / 2
+        let color = barColor(for: percent).withAlphaComponent(alpha)
+        (label as NSString).draw(at: NSPoint(x: textX, y: textY),
+                                 withAttributes: [.font: font, .foregroundColor: color])
+    }
+
+    private static func drawSingleBar(percent: Double, width: CGFloat, height: CGFloat,
+                                      isServiceDown: Bool = false) {
+        let dotSize: CGFloat = 7
+        let dotGap: CGFloat = 4
+        let barWidth = width - dotSize - dotGap
+        let barHeight: CGFloat = 5
+        let barY = (height - barHeight) / 2
+        let barX = dotSize + dotGap
+
+        let dotY = (height - dotSize) / 2
+        let dotPath = NSBezierPath(ovalIn: NSRect(x: 0, y: dotY, width: dotSize, height: dotSize))
+        let dotColor: NSColor = isServiceDown ? .systemGray : gaugeColor(for: percent)
+        dotColor.setFill()
+        dotPath.fill()
+
+        let alpha: CGFloat = isServiceDown ? 0.4 : 1.0
+        drawPillBar(in: NSRect(x: barX, y: barY, width: barWidth, height: barHeight),
+                    percent: percent, alpha: alpha)
     }
 }

@@ -512,12 +512,23 @@ struct PopoverView: View {
                     .foregroundColor(.secondary)
             }
             if let pct = pct, let limit = limitDollars {
-                UsageProgressBar(value: pct, tint: barColor(pct))
-                    .frame(height: 6)
+                if viewModel.viewProgressStyle == 1 {
+                    HStack(alignment: .center, spacing: 12) {
+                        Text("\(usedString) of \(formatCurrency(limit, code: currency))")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        UsageCircularProgress(value: pct, tint: barColor(pct), size: 48)
+                    }
                     .padding(.top, 2)
-                Text("\(usedString) of \(formatCurrency(limit, code: currency))")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
+                } else {
+                    UsageProgressBar(value: pct, tint: barColor(pct))
+                        .frame(height: 6)
+                        .padding(.top, 2)
+                    Text("\(usedString) of \(formatCurrency(limit, code: currency))")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding(.vertical, 4)
