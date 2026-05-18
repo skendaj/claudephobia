@@ -111,9 +111,11 @@ Manage every Claude account you have — personal, work, client, enterprise — 
 
 Enterprise plans on Claude bill by credits instead of percentage-capped windows. Clawdephobia detects this automatically and switches to a credits view:
 
-- **Spend amount** — formatted in the plan's currency (e.g. `$14.37`)
+- **Spend amount** — formatted in the plan's currency (e.g. `$14.37 of $100.00`), pulled from Claude's authoritative `/overage_spend_limit` endpoint
+- **Prepaid credit balance** — when the org has prepaid credits, the remaining balance is shown alongside the spend total (e.g. `Balance $25.00`), pulled from `/prepaid/credits`
 - **`Unlimited` badge** when there's no monthly cap, **`Capped`** with a progress bar when there is
 - **Monthly reset date** — computed as the 1st of next month (e.g. `Resets Jun 1`)
+- **Single menu bar indicator** — enterprise accounts get a single bar or circle in the menu bar reflecting credit usage (no dual session/weekly bars)
 - 5-hour and 7-day rows are hidden for true credits-only accounts but Pro accounts that *also* enable `extra_usage` keep both views simultaneously
 
 ### Expired Sessions
@@ -122,12 +124,14 @@ When a session key stops working (you signed out of claude.ai, the cookie rotate
 
 - The popover shows an orange `Session expired` banner with an **Update →** button
 - Tapping the banner opens the add-account sheet pre-wired to **upsert** — paste the new key and Clawdephobia rotates the Keychain entry for the same org without losing your label or settings
+- **Same-id rotation is instant** — pasting a rotated key for an already-active account immediately shows a loading state and re-attaches the data pipeline without flashing empty bars
 - If a successful snapshot existed before expiry, the cached usage bars stay visible (dimmed) underneath the banner so you can still see your last-known state
 - Account switching never blanks the popover — last-known data hydrates from the in-memory snapshot before the next fetch completes
 
 ### Menu Bar
 
-- Dual progress bars showing session (top) and weekly (bottom) usage for the **active account**
+- **Pro plans** — dual progress bars showing session (top) and weekly (bottom) usage for the active account
+- **Enterprise plans** — single dedicated bar or circle reflecting credit usage (auto-switches based on plan type)
 - Color-coded status dot — green (normal), orange (>70%), red (>90%), grey (service down)
 - Optional percentage text next to the icon (three display modes: icon only, icon + percentages, icon + compact)
 - Configurable progress style — bars or circular indicators, set independently for the menu bar icon and the popover content view
