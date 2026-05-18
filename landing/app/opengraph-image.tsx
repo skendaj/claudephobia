@@ -24,7 +24,7 @@ export default function OgImage() {
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} width={320} height={320} alt="" />
+        <img src={src} width={320} height={320} alt="" style={{ mixBlendMode: "multiply" }} />
       </div>
     ),
     { ...size }
