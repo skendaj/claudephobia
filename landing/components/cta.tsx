@@ -1,4 +1,5 @@
-import { Apple, Github } from "lucide-react";
+import { Github } from "lucide-react";
+import { ApplePlain } from "@/components/icons/apple-plain";
 import { Button } from "@/components/ui/button";
 
 const DOWNLOAD_URL =
@@ -17,7 +18,7 @@ export function CTA() {
       <div className="mt-8 flex items-center justify-center gap-3 flex-wrap">
         <Button asChild size="lg">
           <a href={DOWNLOAD_URL}>
-            <Apple className="h-4 w-4" fill="currentColor" />
+            <ApplePlain className="h-4 w-4" />
             Download for Mac
           </a>
         </Button>

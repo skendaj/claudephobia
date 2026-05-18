@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Apple, Github } from "lucide-react";
+import { Github } from "lucide-react";
+import { ApplePlain } from "@/components/icons/apple-plain";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Highlight } from "@/components/highlight";
@@ -69,7 +70,7 @@ export function Hero() {
         >
           <Button asChild size="lg">
             <a href={DOWNLOAD_URL}>
-              <Apple className="h-4 w-4" fill="currentColor" />
+              <ApplePlain className="h-4 w-4" />
               Download for Mac
             </a>
           </Button>
@@ -90,7 +91,7 @@ export function Hero() {
           <span>Free · Open source · macOS 13+</span>
           <span className="hidden sm:inline text-mute/50">·</span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-cream-2 px-2.5 py-0.5 text-[11px] font-medium text-graphite">
-            <Apple className="h-3 w-3" fill="currentColor" />
+            <ApplePlain className="h-3 w-3" />
             Mac App Store · Coming Soon
           </span>
         </motion.div>

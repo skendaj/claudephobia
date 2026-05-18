@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Apple, Github, FileText } from "lucide-react";
+import { Github, FileText } from "lucide-react";
+import { ApplePlain } from "@/components/icons/apple-plain";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { Highlight } from "@/components/highlight";
@@ -93,14 +94,14 @@ export default async function DownloadPage() {
           >
             <Badge className="absolute top-4 right-4">Coming soon</Badge>
             <div className="h-24 w-24 rounded-[20px] bg-white/60 border border-line flex items-center justify-center mb-5">
-              <Apple className="h-10 w-10" fill="currentColor" />
+              <ApplePlain className="h-10 w-10" />
             </div>
             <p className="font-display font-semibold text-lg">Mac App Store</p>
             <p className="mt-1 text-[13px] text-mute">One-click install</p>
             <p className="text-[13px] text-mute">Automatic updates</p>
             <div className="mt-5">
               <Button variant="soft" disabled>
-                <Apple className="h-4 w-4" fill="currentColor" />
+                <ApplePlain className="h-4 w-4" />
                 Get from App Store
               </Button>
             </div>
