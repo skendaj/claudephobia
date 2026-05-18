@@ -47,13 +47,33 @@ final class UsageViewModel: ObservableObject {
     /// "Resets MMM d" for the credit row — derived locally (API does not return it).
     @Published var creditsResetDescription: String = ""
 
-    /// True only when the API reports **no** 5-hour or 7-day window at all and
-    /// extra-usage credit billing is active — i.e. true enterprise / credits-only
-    /// plans. Pro accounts that happen to enable `extra_usage` alongside their
-    /// regular limits still render normally (5h/7d bars stay visible).
+    /// True only for true enterprise / credits-only plans. Either the API
+    /// reports no 5-hour or 7-day window AND extra_usage credit billing is
+    /// active, OR the resolved plan tier explicitly says Enterprise/Team. Pro
+    /// accounts with extra_usage enabled stay non-enterprise so the regular
+    /// 5h/7d bars keep rendering alongside a dedicated "Extra usage" section.
     var isEnterprise: Bool {
-        extraCreditsEnabled && !hasSessionLimit && !hasWeeklyLimit
+        if let name = planDisplayName, name == "Enterprise" || name == "Team" {
+            return true
+        }
+        return extraCreditsEnabled && !hasSessionLimit && !hasWeeklyLimit
     }
+
+    /// Prepaid credit balance (cents). `nil` when the endpoint is unavailable.
+    @Published var prepaidBalanceCents: Double?
+    @Published var prepaidCurrency: String?
+
+    /// Authoritative monthly spend-limit. Cents per Anthropic convention.
+    @Published var spendLimitEnabled: Bool = false
+    @Published var spendLimitMonthlyCents: Double?
+    @Published var spendLimitUsedCents: Double?
+    @Published var spendLimitCurrency: String?
+    @Published var spendLimitDisabledReason: String?
+    @Published var spendLimitOutOfCredits: Bool = false
+
+    /// Human-readable plan tier (e.g. "Pro", "Max 5×", "Enterprise"). Derived
+    /// from `rateLimitTier`.
+    @Published var planDisplayName: String?
 
     /// Set to true when the API actually reported a 5-hour / 7-day window for the
     /// active account. Enterprise plans return null for these; the popover hides
@@ -238,6 +258,15 @@ final class UsageViewModel: ObservableObject {
         extraCreditsMonthlyLimit = nil
         extraCreditsCurrency = nil
         creditsResetDescription = ""
+        prepaidBalanceCents = nil
+        prepaidCurrency = nil
+        spendLimitEnabled = false
+        spendLimitMonthlyCents = nil
+        spendLimitUsedCents = nil
+        spendLimitCurrency = nil
+        spendLimitDisabledReason = nil
+        spendLimitOutOfCredits = false
+        planDisplayName = nil
         hasSessionLimit = false
         hasWeeklyLimit = false
         omelettePercent = nil
@@ -729,7 +758,32 @@ final class UsageViewModel: ObservableObject {
             creditsResetDescription = ""
         }
 
+        if let prepaid = data.prepaidCredits {
+            updateIfNeeded(&prepaidBalanceCents, Optional(prepaid.amountCents))
+            updateIfNeeded(&prepaidCurrency, Optional(prepaid.currency))
+        } else {
+            prepaidBalanceCents = nil
+            prepaidCurrency = nil
+        }
+
+        if let spend = data.overageSpendLimit {
+            updateIfNeeded(&spendLimitEnabled, spend.isEnabled)
+            updateIfNeeded(&spendLimitMonthlyCents, spend.monthlyLimitCents)
+            updateIfNeeded(&spendLimitUsedCents, spend.usedCreditsCents)
+            updateIfNeeded(&spendLimitCurrency, Optional(spend.currency))
+            updateIfNeeded(&spendLimitDisabledReason, spend.disabledReason)
+            updateIfNeeded(&spendLimitOutOfCredits, spend.outOfCredits)
+        } else {
+            spendLimitEnabled = false
+            spendLimitMonthlyCents = nil
+            spendLimitUsedCents = nil
+            spendLimitCurrency = nil
+            spendLimitDisabledReason = nil
+            spendLimitOutOfCredits = false
+        }
+
         updateIfNeeded(&rateLimitTier, data.rateLimitTier)
+        updateIfNeeded(&planDisplayName, Self.mapPlanName(data.rateLimitTier))
 
         // Pacing indicator
         let newPacing = calculatePacingWarning(data)
@@ -1094,8 +1148,45 @@ final class UsageViewModel: ObservableObject {
             rateLimitTier:               "pro",
             sevenDayOmelette:            RateLimitInfo(percentUsed: 0.25, resetsAt: now.addingTimeInterval(3600 * 52)),
             sevenDayOmelettePromotional: nil,
-            iguanaNecktie:               nil
+            iguanaNecktie:               nil,
+            prepaidCredits:              PrepaidCreditsInfo(amountCents: 179, currency: "USD"),
+            overageSpendLimit:           OverageSpendLimitInfo(
+                isEnabled: true,
+                monthlyLimitCents: 3500,
+                usedCreditsCents: 1234,
+                currency: "USD",
+                disabledReason: nil,
+                outOfCredits: false,
+                period: "monthly"
+            )
         )
+    }
+
+    /// Maps Anthropic's opaque `rate_limit_tier` string into a user-facing
+    /// plan name. Unknown tiers fall back to a title-cased version of the raw
+    /// value with any `claude_` prefix stripped.
+    private static let tierDisplayNames: [String: String] = [
+        "free": "Free",
+        "claude_free": "Free",
+        "pro": "Pro",
+        "claude_pro": "Pro",
+        "max_5x": "Max 5×",
+        "claude_max_5x": "Max 5×",
+        "max_20x": "Max 20×",
+        "claude_max_20x": "Max 20×",
+        "team": "Team",
+        "claude_team": "Team",
+        "enterprise": "Enterprise",
+        "claude_enterprise": "Enterprise"
+    ]
+
+    static func mapPlanName(_ raw: String?) -> String? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespaces).lowercased(), !raw.isEmpty else {
+            return nil
+        }
+        if let mapped = tierDisplayNames[raw] { return mapped }
+        let cleaned = raw.replacingOccurrences(of: "claude_", with: "")
+        return cleaned.split(separator: "_").map { $0.capitalized }.joined(separator: " ")
     }
 
     // MARK: - Legacy LaunchAgent Cleanup

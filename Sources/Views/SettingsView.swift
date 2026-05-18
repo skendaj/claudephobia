@@ -608,6 +608,16 @@ struct SettingsView: View {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     }
 
+    /// GitHub release URL for the displayed version (`v1.0.0` → release tag `v1.0.0`).
+    /// Both Mac App Store and GitHub builds ship from the same release tag so the
+    /// link works for either install source.
+    private func githubReleaseURL(for version: String) -> URL? {
+        let trimmed = version.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        let tag = trimmed.hasPrefix("v") ? trimmed : "v\(trimmed)"
+        return URL(string: "https://github.com/skendaj/Claudephobia/releases/tag/\(tag)")
+    }
+
     // MARK: - About
 
     private var aboutTab: some View {
@@ -617,9 +627,16 @@ struct SettingsView: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 if !appVersion.isEmpty {
-                    Text("v\(appVersion)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+                    if let releaseURL = githubReleaseURL(for: appVersion) {
+                        Link("v\(appVersion)", destination: releaseURL)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .help("Open GitHub release notes for v\(appVersion)")
+                    } else {
+                        Text("v\(appVersion)")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
 

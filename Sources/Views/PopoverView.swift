@@ -80,14 +80,6 @@ struct PopoverView: View {
                 renderItems
             }
 
-            // Pro accounts on a paid plan with extra_usage enabled get a dedicated
-            // credits row in addition to the regular limits (does not replace them).
-            if !viewModel.isUnauthorized && !viewModel.isEnterprise &&
-                (viewModel.extraCreditsEnabled || (viewModel.extraCreditsUsed ?? 0) > 0) {
-                Divider().padding(.vertical, 6)
-                creditsRow
-            }
-
             Divider().padding(.vertical, 6)
 
             if let version = viewModel.updateAvailableVersion {
@@ -122,6 +114,9 @@ struct PopoverView: View {
         HStack(alignment: .center, spacing: 8) {
             AppIconView(size: 18)
             accountSwitcher
+            if let plan = viewModel.planDisplayName {
+                planBadge(plan)
+            }
             Spacer()
             Button(action: { viewModel.showSettingsWindow = true }) {
                 Image(systemName: "gear")
@@ -398,9 +393,26 @@ struct PopoverView: View {
             items.append(UsageItem(id: "cowork", title: "Weekly \u{2014} Cowork", percent: p,
                 resetDescription: viewModel.coworkResetDescription ?? "", tint: barColor(p)))
         }
-        if let p = viewModel.extraUsagePercent {
-            items.append(UsageItem(id: "extra", title: "Extra usage", percent: p,
-                resetDescription: viewModel.extraUsageResetDescription ?? "", tint: .purple))
+        // Personal accounts with extra_usage enabled — render as a regular row
+        // (active when percent > 0, falls into the inactive accordion otherwise).
+        let extraPercentFromCents: Double? = {
+            guard let used = viewModel.spendLimitUsedCents ?? viewModel.extraCreditsUsed,
+                  let limit = viewModel.spendLimitMonthlyCents ?? viewModel.extraCreditsMonthlyLimit,
+                  limit > 0 else { return nil }
+            return min(1.0, used / limit)
+        }()
+        let extraPercent = extraPercentFromCents ?? viewModel.extraUsagePercent
+        if viewModel.extraCreditsEnabled
+            || viewModel.spendLimitMonthlyCents != nil
+            || (viewModel.extraCreditsUsed ?? 0) > 0
+            || extraPercent != nil {
+            items.append(UsageItem(
+                id: "extra",
+                title: "Extra usage",
+                percent: extraPercent ?? 0,
+                resetDescription: extraUsageSubtitle(),
+                tint: .purple
+            ))
         }
         items.append(UsageItem(
             id: "design",
@@ -492,7 +504,7 @@ struct PopoverView: View {
 
         return VStack(alignment: .leading, spacing: 3) {
             HStack(spacing: 6) {
-                Text("Enterprise")
+                Text(viewModel.planDisplayName ?? "Enterprise")
                     .font(.system(size: 13, weight: .medium))
                 Text(badgeText)
                     .font(.system(size: 9, weight: .bold))
@@ -536,6 +548,55 @@ struct PopoverView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    // MARK: - Plan Badge (header)
+
+    @ViewBuilder
+    private func planBadge(_ name: String) -> some View {
+        let isPremium = (name == "Enterprise" || name == "Team" || name.hasPrefix("Max"))
+        let tint: Color = isPremium ? .purple : .secondary
+        let bg: Color = isPremium ? Color.purple.opacity(0.15) : Color.secondary.opacity(0.15)
+        Text(name.uppercased())
+            .font(.system(size: 9, weight: .bold))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(bg)
+            .foregroundColor(tint)
+            .cornerRadius(3)
+    }
+
+    // MARK: - Extra Usage Subtitle (inline on the limit row)
+
+    /// Builds the compact dollar subtitle for the "Extra usage" row, e.g.
+    /// "$0.29 of $35 · Bal $1.83 · Resets Jun 1". Each segment is skipped
+    /// when its source value is missing.
+    private func extraUsageSubtitle() -> String {
+        let currency = viewModel.spendLimitCurrency
+            ?? viewModel.extraCreditsCurrency
+            ?? viewModel.prepaidCurrency
+            ?? "USD"
+        let spentCents = viewModel.spendLimitUsedCents ?? viewModel.extraCreditsUsed
+        let limitCents = viewModel.spendLimitMonthlyCents ?? viewModel.extraCreditsMonthlyLimit
+        let balanceCents = viewModel.prepaidBalanceCents
+
+        var parts: [String] = []
+        if let spentCents = spentCents {
+            let spent = spentCents / 100.0
+            if let limitCents = limitCents {
+                parts.append("\(formatCurrency(spent, code: currency)) of \(formatCurrency(limitCents / 100.0, code: currency))")
+            } else {
+                parts.append("\(formatCurrency(spent, code: currency)) spent")
+            }
+        } else if let limitCents = limitCents {
+            parts.append("Limit \(formatCurrency(limitCents / 100.0, code: currency))")
+        }
+        if let balanceCents = balanceCents {
+            parts.append("Balance \(formatCurrency(balanceCents / 100.0, code: currency))")
+        }
+        let reset = viewModel.creditsResetDescription
+        if !reset.isEmpty { parts.append(reset) }
+        return parts.joined(separator: " \u{00B7} ")
     }
 
     private func formatCurrency(_ amount: Double, code: String) -> String {

@@ -46,9 +46,13 @@ final class UsageScraper {
         // Fetch usage and rate limits in parallel
         async let usageResult = fetchUsage(orgId: orgId)
         async let tierResult = fetchTier(orgId: orgId)
+        async let prepaidResult = fetchPrepaidCredits(orgId: orgId)
+        async let spendLimitResult = fetchOverageSpendLimit(orgId: orgId)
 
         let usage = try await usageResult
         let tier = try? await tierResult
+        let prepaid = try? await prepaidResult
+        let spendLimit = try? await spendLimitResult
 
 return ClawdUsageData(
             fiveHour: usage.fiveHour,
@@ -62,7 +66,9 @@ return ClawdUsageData(
             rateLimitTier: tier,
             sevenDayOmelette: usage.sevenDayOmelette,
             sevenDayOmelettePromotional: usage.sevenDayOmelettePromotional,
-            iguanaNecktie: usage.iguanaNecktie
+            iguanaNecktie: usage.iguanaNecktie,
+            prepaidCredits: prepaid ?? nil,
+            overageSpendLimit: spendLimit ?? nil
         )
     }
 
@@ -117,7 +123,9 @@ return ClawdUsageData(
             rateLimitTier: nil,
             sevenDayOmelette: parseLimit(dict["seven_day_omelette"]),
             sevenDayOmelettePromotional: parseLimit(dict["omelette_promotional"]),
-            iguanaNecktie: parseLimit(dict["iguana_necktie"])
+            iguanaNecktie: parseLimit(dict["iguana_necktie"]),
+            prepaidCredits: nil,
+            overageSpendLimit: nil
         )
     }
 
@@ -131,6 +139,49 @@ return ClawdUsageData(
         }
 
         return tier
+    }
+
+    /// Prepaid balance. 404/4xx is non-fatal — accounts without prepaid credits
+    /// simply don't have this endpoint populated.
+    private func fetchPrepaidCredits(orgId: String) async throws -> PrepaidCreditsInfo? {
+        let (data, status) = try await apiGet(path: "/api/organizations/\(orgId)/prepaid/credits")
+        guard status == 200,
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let amount = dict["amount"] as? Double else {
+            return nil
+        }
+        let currency = (dict["currency"] as? String) ?? "USD"
+        return PrepaidCreditsInfo(amountCents: amount, currency: currency)
+    }
+
+    /// Overage spend-limit object. 404/4xx is non-fatal — accounts without
+    /// overage billing return nothing useful here.
+    private func fetchOverageSpendLimit(orgId: String) async throws -> OverageSpendLimitInfo? {
+        let (data, status) = try await apiGet(path: "/api/organizations/\(orgId)/overage_spend_limit")
+        guard status == 200,
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        let isEnabled = dict["is_enabled"] as? Bool ?? false
+        let monthly = dict["monthly_credit_limit"] as? Double
+        let used = dict["used_credits"] as? Double
+        let currency = (dict["currency"] as? String) ?? "USD"
+        let disabledReason = dict["disabled_reason"] as? String
+        let outOfCredits = dict["out_of_credits"] as? Bool ?? false
+        let period = dict["period"] as? String
+        // Skip when nothing meaningful is reported
+        if !isEnabled && monthly == nil && used == nil && disabledReason == nil {
+            return nil
+        }
+        return OverageSpendLimitInfo(
+            isEnabled: isEnabled,
+            monthlyLimitCents: monthly,
+            usedCreditsCents: used,
+            currency: currency,
+            disabledReason: disabledReason,
+            outOfCredits: outOfCredits,
+            period: period
+        )
     }
 
     // MARK: - Parse

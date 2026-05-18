@@ -40,6 +40,25 @@ struct ExtraUsageInfo: Equatable {
     let currency: String?
 }
 
+/// Prepaid credit balance from `/api/organizations/{id}/prepaid/credits`. Amount
+/// is in cents per Anthropic's convention.
+struct PrepaidCreditsInfo: Equatable {
+    let amountCents: Double
+    let currency: String
+}
+
+/// Authoritative overage spend-limit object from
+/// `/api/organizations/{id}/overage_spend_limit`. All monetary values in cents.
+struct OverageSpendLimitInfo: Equatable {
+    let isEnabled: Bool
+    let monthlyLimitCents: Double?
+    let usedCreditsCents: Double?
+    let currency: String
+    let disabledReason: String?
+    let outOfCredits: Bool
+    let period: String?
+}
+
 struct ClawdUsageData {
     let fiveHour: RateLimitInfo?
     let sevenDay: RateLimitInfo?
@@ -55,6 +74,9 @@ struct ClawdUsageData {
     let sevenDayOmelette: RateLimitInfo?
     let sevenDayOmelettePromotional: RateLimitInfo?
     let iguanaNecktie: RateLimitInfo?
+
+    let prepaidCredits: PrepaidCreditsInfo?
+    let overageSpendLimit: OverageSpendLimitInfo?
 }
 
 /// Lightweight client used only for validating session keys via /api/organizations.
