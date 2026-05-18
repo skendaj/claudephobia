@@ -4,7 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Apple, HelpCircle, Home } from "lucide-react";
+import { HelpCircle, Home } from "lucide-react";
+import { ApplePlain } from "@/components/icons/apple-plain";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -101,7 +102,7 @@ export function Nav({ dark = false }: { dark?: boolean }) {
         </Link>
         <Button asChild size="default">
           <a href={DOWNLOAD_URL}>
-            <Apple className="h-4 w-4" fill="currentColor" />
+            <ApplePlain className="h-4 w-4" />
             <span className="hidden xs:inline">Download for Mac</span>
             <span className="xs:hidden">Download</span>
           </a>
