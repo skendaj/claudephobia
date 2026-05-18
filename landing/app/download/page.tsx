@@ -17,7 +17,22 @@ export const metadata: Metadata = {
   description: "Download Clawdephobia for macOS 13+.",
 };
 
-export default function DownloadPage() {
+async function getLatestVersion(): Promise<string> {
+  try {
+    const res = await fetch(
+      "https://api.github.com/repos/skendaj/clawdephobia/releases/latest",
+      { next: { revalidate: 3600 } }
+    );
+    if (!res.ok) return "";
+    const data = await res.json();
+    return (data.tag_name as string) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export default async function DownloadPage() {
+  const version = await getLatestVersion();
   return (
     <main className="min-h-screen">
       <Nav />
@@ -61,7 +76,7 @@ export default function DownloadPage() {
             <p className="mt-1 text-[13px] text-mute">
               Minimum macOS 13 Ventura
             </p>
-            <p className="text-[13px] text-mute">DMG · v1.0 · GitHub release</p>
+            <p className="text-[13px] text-mute">DMG{version ? ` · ${version}` : ""} · GitHub release</p>
             <div className="mt-5">
               <Button asChild>
                 <span>
