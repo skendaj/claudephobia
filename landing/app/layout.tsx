@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   title: "Clawdephobia — Claude usage limits in your menu bar",
   description:
     "A lightweight macOS menu bar app that monitors your Claude AI usage limits in real time. Track 5-hour, 7-day, and per-model limits across every account.",
-  metadataBase: new URL("https://clawdephobia.app"),
+  metadataBase: new URL("https://clawdephobia.vercel.app"),
   openGraph: {
     title: "Clawdephobia",
     description: "Claude usage limits, right in your menu bar.",

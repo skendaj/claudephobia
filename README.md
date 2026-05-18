@@ -9,15 +9,20 @@
 <p align="center">A lightweight macOS menu bar app that monitors your AI assistant usage limits in real time.<br>See your 5-hour session and 7-day weekly usage at a glance — no browser tab required.<br>Track multiple Claude accounts (personal, work, enterprise) from a single switcher.</p>
 
 <p align="center">
+  <a href="https://clawdephobia.vercel.app">
+    <img src="https://img.shields.io/badge/Website-clawdephobia.vercel.app-1F1E1D?style=for-the-badge&logo=vercel&logoColor=white" alt="Website">
+  </a>
   <a href="https://github.com/skendaj/Claudephobia/releases/latest/download/Clawdephobia.dmg">
     <img src="https://img.shields.io/badge/Download-Clawdephobia.dmg-D97757?style=for-the-badge&logo=apple&logoColor=white" alt="Download">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://clawdephobia.vercel.app"><strong>Website</strong></a> ·
+  <a href="https://clawdephobia.vercel.app">Home</a> ·
   <a href="https://github.com/skendaj/Claudephobia/releases">Releases</a> ·
-  <a href="https://clawdephobia.vercel.app/faqs">FAQs</a>
+  <a href="https://clawdephobia.vercel.app/faqs">FAQs</a> ·
+  <a href="https://clawdephobia.vercel.app/download">Download</a> ·
+  <a href="https://clawdephobia.vercel.app/privacy">Privacy</a>
 </p>
 
 ## How It Works
