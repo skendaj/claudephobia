@@ -21,7 +21,7 @@ const titleEm = ["Right", "in", "your", "menu", "bar."];
 
 export function Hero() {
   return (
-    <section className="relative pt-12 md:pt-14 pb-6 md:pb-8 px-4">
+    <section className="relative pt-[64px] md:pt-14 pb-6 md:pb-8 px-4">
       <div className="relative z-10 mx-auto max-w-5xl text-center">
         <div className="mx-auto -mb-2 md:-mb-4 h-[120px] md:h-[150px] w-full max-w-md pointer-events-none">
           <HeroScene />

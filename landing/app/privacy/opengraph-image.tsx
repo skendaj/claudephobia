@@ -45,7 +45,7 @@ export default function OgImage() {
             style={{
               display: "flex",
               fontSize: 32,
-              fontWeight: 600,
+              fontWeight: 800,
               color: "#D4823F",
               textTransform: "uppercase",
               letterSpacing: 4,
@@ -58,7 +58,7 @@ export default function OgImage() {
               display: "flex",
               flexDirection: "column",
               fontSize: 96,
-              fontWeight: 700,
+              fontWeight: 900,
               lineHeight: 1,
               letterSpacing: -2.5,
             }}

@@ -7,14 +7,52 @@ import type { Group } from "three";
 
 const globalPointer = { x: 0, y: 0 };
 let listenerAttached = false;
+let gyroAttached = false;
+
+function attachGyroListener() {
+  if (gyroAttached) return;
+  gyroAttached = true;
+  window.addEventListener(
+    "deviceorientation",
+    (e: DeviceOrientationEvent) => {
+      const gamma = e.gamma ?? 0;   // left/right tilt
+      const beta  = e.beta  ?? 90;  // front/back; ~90 when phone upright
+      globalPointer.x = Math.max(-1, Math.min(1, gamma / 45));
+      globalPointer.y = Math.max(-1, Math.min(1, (beta - 90) / 45));
+    },
+    { passive: true },
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DOE = typeof DeviceOrientationEvent !== "undefined"
+  ? (DeviceOrientationEvent as any)
+  : null;
+
+async function requestGyroPermission() {
+  if (!DOE) return;
+  if (typeof DOE.requestPermission === "function") {
+    try {
+      const state = await DOE.requestPermission();
+      if (state === "granted") attachGyroListener();
+    } catch {
+      // called outside a gesture — caller must retry from a real tap
+    }
+  } else {
+    attachGyroListener();
+  }
+}
+
+const isMobileBrowser =
+  typeof window !== "undefined" &&
+  "ontouchstart" in window &&
+  typeof DeviceOrientationEvent !== "undefined";
 
 function useInputPointer() {
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const isMobile =
-      "ontouchstart" in window && typeof DeviceOrientationEvent !== "undefined";
 
-    if (!isMobile) {
+    if (!isMobileBrowser) {
       if (listenerAttached) return;
       listenerAttached = true;
       const onMove = (e: PointerEvent) => {
@@ -28,50 +66,8 @@ function useInputPointer() {
       };
     }
 
-    const onOrientation = (e: DeviceOrientationEvent) => {
-      const gamma = e.gamma ?? 0;
-      const beta = e.beta ?? 50;
-      globalPointer.x = Math.max(-1, Math.min(1, gamma / 45));
-      globalPointer.y = Math.max(-1, Math.min(1, (beta - 50) / 35));
-    };
-
-    const attachGyro = () => {
-      window.addEventListener("deviceorientation", onOrientation, { passive: true });
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const DOE = DeviceOrientationEvent as any;
-    if (typeof DOE.requestPermission === "function") {
-      const requestGyro = () =>
-        DOE.requestPermission()
-          .then((state: string) => { if (state === "granted") attachGyro(); })
-          .catch(() => {});
-
-      const onGesture = () => requestGyro();
-
-      // try immediately — resolves without gesture if already granted before
-      DOE.requestPermission()
-        .then((state: string) => {
-          if (state === "granted") {
-            attachGyro();
-          } else {
-            // first-time: wait for a tap (click bubbles out of WebGL canvas)
-            window.addEventListener("click", onGesture, { once: true });
-          }
-        })
-        .catch(() => {
-          // iOS threw because no gesture yet — fall back to click
-          window.addEventListener("click", onGesture, { once: true });
-        });
-
-      return () => {
-        window.removeEventListener("click", onGesture);
-        window.removeEventListener("deviceorientation", onOrientation);
-      };
-    } else {
-      attachGyro();
-      return () => window.removeEventListener("deviceorientation", onOrientation);
-    }
+    // Try immediately — succeeds silently if user already granted before
+    requestGyroPermission();
   }, []);
 }
 
@@ -135,6 +131,10 @@ export function HeroScene() {
       dpr={[1, 1.6]}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       style={{ height: "100%", width: "100%" }}
+      // iOS 13+: requestPermission MUST be called synchronously inside a
+      // trusted user-gesture handler. React's onClick on Canvas is the most
+      // reliable trigger — it fires before any async work.
+      onClick={isMobileBrowser ? () => requestGyroPermission() : undefined}
     >
       <Suspense fallback={null}>
         <ambientLight intensity={0.85} />

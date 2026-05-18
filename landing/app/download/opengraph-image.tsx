@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ogFonts } from "@/lib/og-font";
 
 export const runtime = "nodejs";
 export const alt = "Download Clawdephobia for Mac";
@@ -21,7 +22,7 @@ export default function OgImage() {
           display: "flex",
           flexDirection: "column",
           padding: "72px 80px",
-          fontFamily: "system-ui, -apple-system, sans-serif",
+          fontFamily: "Inter Tight",
           color: "#1F1B16",
         }}
       >
@@ -45,7 +46,7 @@ export default function OgImage() {
             style={{
               display: "flex",
               fontSize: 32,
-              fontWeight: 600,
+              fontWeight: 800,
               color: "#B8530F",
               textTransform: "uppercase",
               letterSpacing: 4,
@@ -57,7 +58,7 @@ export default function OgImage() {
             style={{
               display: "flex",
               fontSize: 92,
-              fontWeight: 700,
+              fontWeight: 900,
               lineHeight: 1,
               letterSpacing: -2.5,
             }}
@@ -82,6 +83,6 @@ export default function OgImage() {
         </div>
       </div>
     ),
-    { ...size }
+    { ...size, fonts: ogFonts() }
   );
 }
