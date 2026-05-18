@@ -421,6 +421,7 @@ struct PopoverView: View {
         let items = allItems
         let active = items.filter { $0.percent > 0 }
         let idle = items.filter { $0.percent <= 0 }
+        let expanded = showInactive || active.isEmpty
 
         // Active section
         ForEach(Array(active.enumerated()), id: \.element.id) { index, item in
@@ -436,12 +437,15 @@ struct PopoverView: View {
         // Idle accordion — full-width clickable header (chevron + label both tap-targets)
         if !idle.isEmpty {
             if !active.isEmpty { Divider().padding(.vertical, 6) }
-            Button(action: { withAnimation(.easeInOut(duration: 0.18)) { showInactive.toggle() } }) {
+            Button(action: {
+                guard !active.isEmpty else { return }
+                withAnimation(.easeInOut(duration: 0.18)) { showInactive.toggle() }
+            }) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(.secondary)
-                        .rotationEffect(.degrees(showInactive ? 90 : 0))
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
                     Text("Inactive limits \u{00B7} \(idle.count)")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.secondary)
@@ -452,7 +456,7 @@ struct PopoverView: View {
             }
             .buttonStyle(.plain)
 
-            if showInactive {
+            if expanded {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(idle.enumerated()), id: \.element.id) { index, item in
                         if index > 0 { Divider().padding(.vertical, 6) }
