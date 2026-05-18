@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Resources/icon.png" width="128" height="128" alt="clawdephobia icon">
+  <img src="Resources/icon-rounded.png" width="128" height="128" alt="clawdephobia icon">
 </p>
 
 <h1 align="center">Clawdephobia</h1>
@@ -23,6 +23,12 @@
   <a href="https://clawdephobia.vercel.app/faqs">FAQs</a> ·
   <a href="https://clawdephobia.vercel.app/download">Download</a> ·
   <a href="https://clawdephobia.vercel.app/privacy">Privacy</a>
+</p>
+
+<p align="center">
+  <img src="landing/public/shots/popover.png" width="32%" alt="Popover with live usage bars">
+  <img src="landing/public/shots/settings.png" width="32%" alt="Settings window">
+  <img src="landing/public/shots/setup.png" width="32%" alt="Setup screen">
 </p>
 
 ## How It Works
