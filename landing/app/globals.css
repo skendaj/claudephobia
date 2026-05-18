@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #f0eee5;
+  --color-cream-2: #faf9f5;
+  --color-ink: #1f1e1d;
+  --color-graphite: #3d3d3a;
+  --color-mute: #6b6a64;
+  --color-blush: #e8b89a;
+  --color-blush-deep: #d97757;
+  --color-clay: #d97757;
+  --color-clay-deep: #c15f3c;
+  /* expose as text-clay utility */
+  --color-pill: #1f1e1d;
+  --color-line: rgba(31, 30, 29, 0.08);
+  --color-night: #15140f;
+  --color-night-2: #1f1e1d;
+  --font-sans: "Inter Tight", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Geist", "Inter Tight", system-ui, sans-serif;
+  --radius-pill: 9999px;
+  --radius-card: 22px;
+  --radius-shot: 14px;
+}
+
+html,
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body.dark {
+  background: var(--color-night);
+  color: var(--color-cream);
+}
+
+::selection {
+  background: var(--color-clay);
+  color: var(--color-cream);
+}
+
+.highlight {
+  position: relative;
+  display: inline-block;
+  padding: 0 0.18em 0.02em;
+  background: var(--color-clay);
+  color: var(--color-cream-2);
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.dark .highlight {
+  background: var(--color-clay);
+  color: var(--color-cream-2);
+}
+
+.scribble {
+  position: relative;
+  display: inline-block;
+}
+.scribble::after {
+  content: "";
+  position: absolute;
+  inset: -6px -10px -6px -10px;
+  border: 1.5px solid var(--color-clay);
+  border-radius: 60% 40% 55% 45% / 50% 60% 40% 50%;
+  transform: rotate(-2deg);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.pill-shadow {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 12px 30px -12px rgba(26, 22, 19, 0.35);
+}
+
+.card-shadow {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 30px 80px -30px rgba(26, 22, 19, 0.35),
+    0 10px 20px -10px rgba(26, 22, 19, 0.18);
+}
+
+.divider {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-line) 20%,
+    var(--color-line) 80%,
+    transparent
+  );
+  height: 1px;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  background: linear-gradient(
+    180deg,
+    rgba(26, 22, 19, 0.06) 0%,
+    rgba(26, 22, 19, 0) 80%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.side-wordmark {
+  color: rgba(31, 30, 29, 0.28);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 1) 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 1) 100%
+  );
+}
+
+.speech-bubble {
+  transform: translateX(-50%);
+}
+.speech-bubble::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 2px;
+}
+.group:hover .speech-bubble {
+  animation: bubble-bob 1.6s ease-in-out infinite;
+}
+@keyframes bubble-bob {
+  0%, 100% { transform: translate(-50%, 0) rotate(-2deg); }
+  50% { transform: translate(-50%, -3px) rotate(2deg); }
+}
+
+@keyframes scared-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-1.5px, 1px) rotate(-4deg); }
+  20% { transform: translate(1.5px, -1px) rotate(4deg); }
+  30% { transform: translate(-2px, -1px) rotate(-6deg); }
+  40% { transform: translate(2px, 1px) rotate(6deg); }
+  50% { transform: translate(-1.5px, 1.5px) rotate(-5deg); }
+  60% { transform: translate(1.5px, -1.5px) rotate(5deg); }
+  70% { transform: translate(-1px, 1px) rotate(-3deg); }
+  80% { transform: translate(1px, -1px) rotate(3deg); }
+  90% { transform: translate(-0.5px, 0.5px) rotate(-2deg); }
+}
+.scared:hover {
+  animation: scared-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+  transform-origin: center;
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+.animate-accordion-down { animation: accordion-down 220ms ease-out; }
+.animate-accordion-up { animation: accordion-up 180ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
