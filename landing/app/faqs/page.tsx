@@ -1,16 +1,103 @@
 import { Nav } from "@/components/nav";
 import { FAQAccordion } from "@/components/faq-accordion";
 import { FileText } from "lucide-react";
+import Script from "next/script";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "FAQs — Clawdephobia",
-  description: "Frequently asked questions about Clawdephobia.",
+  title: "FAQs — Clawdephobia: Claude usage tracker for macOS",
+  description:
+    "Answers to common questions about Clawdephobia — the free macOS menu bar app that monitors Claude AI usage limits, rate limits, and quota in real time.",
+};
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "What is Clawdephobia?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Clawdephobia is a free, open-source macOS menu bar app that monitors your Claude AI usage limits in real time. It shows your 5-hour and 7-day usage as live percentage bars and supports multiple accounts.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What macOS app tracks Claude AI usage limits?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Clawdephobia is the dedicated free and open-source macOS menu bar app for monitoring Claude AI rate limits. It tracks 5-hour rolling usage, 7-day weekly limits, and per-model (Opus/Sonnet) usage.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What is a session key and where do I get one?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "It's the sessionKey cookie from claude.ai. Open DevTools (Cmd+Option+I) → Application → Cookies → claude.ai → copy sessionKey. Paste it into Clawdephobia. It looks like sk-ant-sid01-…",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does Clawdephobia send my data anywhere?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No third-party servers. The app talks only to claude.ai (and ntfy.sh if you opt into phone push). Session keys live in your macOS Keychain. Everything stays on your Mac.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does Clawdephobia require an API key?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. Clawdephobia uses your Claude session cookie, not an API key. It works for any Claude plan including Pro, Max, and Enterprise.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How does multi-account work?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Add as many accounts as you want from the popover switcher or Settings → Accounts. Each one has its own Keychain entry, notifications, throttles, and last-known data. Switching is instant.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can I get notifications on my phone when hitting Claude limits?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes — via ntfy.sh, a free open-source push service. Install ntfy on iOS or Android, subscribe to a topic, paste the same topic in Settings → Phone. Critical alerts bypass Do Not Disturb.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What's the difference between Pro and Enterprise view?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Pro plans show 5-hour and 7-day percentage bars. Enterprise / pay-as-you-go plans show credits spent in the plan's currency with a monthly reset date. Clawdephobia auto-detects which view to use.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Will there be a Mac App Store version?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Planned. Today the app ships via GitHub Releases (signed and notarized by Apple). Subscribe to the repo to get notified when MAS goes live.",
+      },
+    },
+  ],
 };
 
 export default function FAQsPage() {
   return (
     <main className="min-h-screen bg-night text-cream">
+      {/* Static hardcoded schema — no user input, no XSS risk */}
+      <Script
+        id="faq-json-ld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <Nav dark />
       <FaqsBody />
       <div className="h-24" />

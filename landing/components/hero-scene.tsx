@@ -8,25 +8,60 @@ import type { Group } from "three";
 const globalPointer = { x: 0, y: 0 };
 let listenerAttached = false;
 
-function useGlobalPointer() {
+function useInputPointer() {
   useEffect(() => {
-    if (listenerAttached || typeof window === "undefined") return;
-    listenerAttached = true;
-    const onMove = (e: PointerEvent) => {
-      globalPointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-      globalPointer.y = -((e.clientY / window.innerHeight) * 2 - 1);
+    if (typeof window === "undefined") return;
+    const isMobile =
+      "ontouchstart" in window && typeof DeviceOrientationEvent !== "undefined";
+
+    if (!isMobile) {
+      if (listenerAttached) return;
+      listenerAttached = true;
+      const onMove = (e: PointerEvent) => {
+        globalPointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+        globalPointer.y = -((e.clientY / window.innerHeight) * 2 - 1);
+      };
+      window.addEventListener("pointermove", onMove, { passive: true });
+      return () => {
+        window.removeEventListener("pointermove", onMove);
+        listenerAttached = false;
+      };
+    }
+
+    const onOrientation = (e: DeviceOrientationEvent) => {
+      const gamma = e.gamma ?? 0;
+      const beta = e.beta ?? 50;
+      globalPointer.x = Math.max(-1, Math.min(1, gamma / 45));
+      globalPointer.y = Math.max(-1, Math.min(1, (beta - 50) / 35));
     };
-    window.addEventListener("pointermove", onMove, { passive: true });
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      listenerAttached = false;
+
+    const attachGyro = () => {
+      window.addEventListener("deviceorientation", onOrientation, { passive: true });
     };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const DOE = DeviceOrientationEvent as any;
+    if (typeof DOE.requestPermission === "function") {
+      const onTouch = () => {
+        DOE.requestPermission()
+          .then((state: string) => { if (state === "granted") attachGyro(); })
+          .catch(() => {});
+      };
+      document.addEventListener("touchstart", onTouch, { once: true });
+      return () => {
+        document.removeEventListener("touchstart", onTouch);
+        window.removeEventListener("deviceorientation", onOrientation);
+      };
+    } else {
+      attachGyro();
+      return () => window.removeEventListener("deviceorientation", onOrientation);
+    }
   }, []);
 }
 
 function MenuBarChip() {
   const ref = useRef<Group>(null);
-  useGlobalPointer();
+  useInputPointer();
   useFrame((state, delta) => {
     if (!ref.current) return;
     const t = state.clock.elapsedTime;
