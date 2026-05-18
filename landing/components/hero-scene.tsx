@@ -42,14 +42,30 @@ function useInputPointer() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const DOE = DeviceOrientationEvent as any;
     if (typeof DOE.requestPermission === "function") {
-      const onTouch = () => {
+      const requestGyro = () =>
         DOE.requestPermission()
           .then((state: string) => { if (state === "granted") attachGyro(); })
           .catch(() => {});
-      };
-      document.addEventListener("touchstart", onTouch, { once: true });
+
+      const onGesture = () => requestGyro();
+
+      // try immediately — resolves without gesture if already granted before
+      DOE.requestPermission()
+        .then((state: string) => {
+          if (state === "granted") {
+            attachGyro();
+          } else {
+            // first-time: wait for a tap (click bubbles out of WebGL canvas)
+            window.addEventListener("click", onGesture, { once: true });
+          }
+        })
+        .catch(() => {
+          // iOS threw because no gesture yet — fall back to click
+          window.addEventListener("click", onGesture, { once: true });
+        });
+
       return () => {
-        document.removeEventListener("touchstart", onTouch);
+        window.removeEventListener("click", onGesture);
         window.removeEventListener("deviceorientation", onOrientation);
       };
     } else {

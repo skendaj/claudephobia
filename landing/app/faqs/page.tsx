@@ -2,12 +2,33 @@ import { Nav } from "@/components/nav";
 import { FAQAccordion } from "@/components/faq-accordion";
 import { FileText } from "lucide-react";
 import Script from "next/script";
+import { breadcrumbJsonLd } from "@/lib/breadcrumb";
 import type { Metadata } from "next";
+
+const breadcrumbLd = breadcrumbJsonLd([
+  { name: "Home", path: "/" },
+  { name: "FAQs", path: "/faqs" },
+]);
 
 export const metadata: Metadata = {
   title: "FAQs — Clawdephobia: Claude usage tracker for macOS",
   description:
     "Answers to common questions about Clawdephobia — the free macOS menu bar app that monitors Claude AI usage limits, rate limits, and quota in real time.",
+  alternates: { canonical: "/faqs" },
+  openGraph: {
+    title: "Clawdephobia FAQs — Claude usage tracking on macOS",
+    description:
+      "Session keys, multi-account, push notifications, Pro vs Enterprise. Common questions about Clawdephobia.",
+    type: "website",
+    url: "/faqs",
+    siteName: "Clawdephobia",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Clawdephobia FAQs",
+    description:
+      "Session keys, multi-account, push notifications. Common questions answered.",
+  },
 };
 
 const faqJsonLd = {
@@ -98,6 +119,10 @@ export default function FAQsPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+      >{JSON.stringify(breadcrumbLd)}</script>
       <Nav dark />
       <FaqsBody />
       <div className="h-24" />

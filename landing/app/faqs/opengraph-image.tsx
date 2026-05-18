@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const runtime = "nodejs";
-export const alt = "Clawdephobia — Claude usage limits in your menu bar";
+export const alt = "Clawdephobia FAQs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -15,15 +15,14 @@ export default function OgImage() {
     (
       <div
         style={{
-          background: "#F0EEE5",
+          background: "#15110C",
           width: "100%",
           height: "100%",
           display: "flex",
           flexDirection: "column",
           padding: "72px 80px",
           fontFamily: "system-ui, -apple-system, sans-serif",
-          color: "#1F1B16",
-          border: "1px solid #E6E2D6",
+          color: "#F0EEE5",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
@@ -39,31 +38,33 @@ export default function OgImage() {
             marginTop: "auto",
             display: "flex",
             flexDirection: "column",
-            gap: 24,
+            gap: 32,
           }}
         >
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              fontSize: 88,
+              fontSize: 120,
               fontWeight: 700,
-              lineHeight: 1.02,
-              letterSpacing: -2.5,
+              lineHeight: 0.95,
+              letterSpacing: -3.5,
             }}
           >
-            <span>Claude usage limits.</span>
-            <span>Right in your menu bar.</span>
+            FAQs
           </div>
           <div
             style={{
               display: "flex",
-              fontSize: 30,
-              color: "#5A544A",
-              letterSpacing: -0.4,
+              flexDirection: "column",
+              fontSize: 28,
+              color: "#B8B0A0",
+              letterSpacing: -0.3,
+              gap: 8,
             }}
           >
-            Free · Open source · macOS 13+
+            <span>What is a session key?</span>
+            <span>Does it require an API key?</span>
+            <span>How does multi-account work?</span>
           </div>
         </div>
       </div>

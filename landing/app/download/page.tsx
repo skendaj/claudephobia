@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import Script from "next/script";
 import { Github, FileText } from "lucide-react";
 import { ApplePlain } from "@/components/icons/apple-plain";
 import { Nav } from "@/components/nav";
@@ -7,7 +8,13 @@ import { Footer } from "@/components/footer";
 import { Highlight } from "@/components/highlight";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { breadcrumbJsonLd } from "@/lib/breadcrumb";
 import type { Metadata } from "next";
+
+const breadcrumbLd = breadcrumbJsonLd([
+  { name: "Home", path: "/" },
+  { name: "Download", path: "/download" },
+]);
 
 const DOWNLOAD_URL =
   "https://github.com/skendaj/clawdephobia/releases/latest/download/Clawdephobia.dmg";
@@ -15,7 +22,23 @@ const REPO_URL = "https://github.com/skendaj/clawdephobia";
 
 export const metadata: Metadata = {
   title: "Download — Clawdephobia",
-  description: "Download Clawdephobia for macOS 13+.",
+  description:
+    "Download Clawdephobia for macOS 13+. Free, open-source, signed and notarized. Drag-to-Applications install from GitHub Releases.",
+  alternates: { canonical: "/download" },
+  openGraph: {
+    title: "Download Clawdephobia for Mac",
+    description:
+      "Free, open-source macOS menu bar app for Claude usage limits. Signed, notarized, drag-to-install.",
+    type: "website",
+    url: "/download",
+    siteName: "Clawdephobia",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Download Clawdephobia for Mac",
+    description:
+      "Free, open-source macOS menu bar app for Claude usage limits.",
+  },
 };
 
 async function getLatestVersion(): Promise<string> {
@@ -36,6 +59,10 @@ export default async function DownloadPage() {
   const version = await getLatestVersion();
   return (
     <main className="min-h-screen">
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+      >{JSON.stringify(breadcrumbLd)}</script>
       <Nav />
       <section className="px-4 pt-36 md:pt-44 pb-20 text-center">
         <h1 className="font-display font-bold tracking-[-0.03em] text-[48px] sm:text-[64px] md:text-[84px] leading-[0.98]">

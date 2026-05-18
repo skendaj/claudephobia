@@ -1,10 +1,30 @@
 import { Nav } from "@/components/nav";
+import { breadcrumbJsonLd } from "@/lib/breadcrumb";
 import type { Metadata } from "next";
+
+const breadcrumbLd = breadcrumbJsonLd([
+  { name: "Home", path: "/" },
+  { name: "Privacy Policy", path: "/privacy" },
+]);
 
 export const metadata: Metadata = {
   title: "Privacy Policy — Clawdephobia",
   description:
     "Clawdephobia is local-first. No tracking, no analytics, no third-party servers.",
+  alternates: { canonical: "/privacy" },
+  openGraph: {
+    title: "Privacy Policy — Clawdephobia",
+    description:
+      "Local-first by design. Zero tracking, zero analytics, zero third-party servers.",
+    type: "website",
+    url: "/privacy",
+    siteName: "Clawdephobia",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Privacy Policy — Clawdephobia",
+    description: "Local-first. Zero tracking, zero analytics.",
+  },
 };
 
 const SECTIONS: { heading: string; body: React.ReactNode }[] = [
@@ -118,6 +138,10 @@ const SECTIONS: { heading: string; body: React.ReactNode }[] = [
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-night text-cream">
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+      >{JSON.stringify(breadcrumbLd)}</script>
       <Nav dark />
       <section className="px-4 pt-28 md:pt-32 pb-20 max-w-3xl mx-auto">
         <h1 className="font-display font-bold tracking-[-0.035em] text-[48px] md:text-[72px] leading-[0.95]">

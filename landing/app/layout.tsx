@@ -21,28 +21,50 @@ const BASE_URL = "https://clawdephobia.vercel.app";
 
 const jsonLd = {
   "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "Clawdephobia",
-  description:
-    "A lightweight macOS menu bar app that monitors your Claude AI usage limits in real time. Track 5-hour, 7-day, and per-model limits across every account.",
-  applicationCategory: "UtilitiesApplication",
-  operatingSystem: "macOS 13+",
-  url: BASE_URL,
-  downloadUrl:
-    "https://github.com/skendaj/clawdephobia/releases/latest/download/Clawdephobia.dmg",
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
-  author: {
-    "@type": "Person",
-    name: "skendaj",
-    url: "https://github.com/skendaj",
-  },
-  codeRepository: "https://github.com/skendaj/clawdephobia",
-  keywords:
-    "Claude AI, usage monitor, rate limit tracker, menu bar app, macOS, Anthropic",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${BASE_URL}/#organization`,
+      name: "Clawdephobia",
+      url: BASE_URL,
+      logo: `${BASE_URL}/icon.png`,
+      sameAs: ["https://github.com/skendaj/clawdephobia"],
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${BASE_URL}/#website`,
+      url: BASE_URL,
+      name: "Clawdephobia",
+      publisher: { "@id": `${BASE_URL}/#organization` },
+      inLanguage: "en",
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${BASE_URL}/#app`,
+      name: "Clawdephobia",
+      description:
+        "A lightweight macOS menu bar app that monitors your Claude AI usage limits in real time. Track 5-hour, 7-day, and per-model limits across every account.",
+      applicationCategory: "UtilitiesApplication",
+      operatingSystem: "macOS 13+",
+      url: BASE_URL,
+      downloadUrl:
+        "https://github.com/skendaj/clawdephobia/releases/latest/download/Clawdephobia.dmg",
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+      author: {
+        "@type": "Person",
+        name: "skendaj",
+        url: "https://github.com/skendaj",
+      },
+      publisher: { "@id": `${BASE_URL}/#organization` },
+      codeRepository: "https://github.com/skendaj/clawdephobia",
+      keywords:
+        "Claude AI, usage monitor, rate limit tracker, menu bar app, macOS, Anthropic",
+    },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -71,6 +93,8 @@ export const metadata: Metadata = {
     "Anthropic Claude usage",
     "Claude API limits dashboard",
   ],
+  alternates: { canonical: "/" },
+  manifest: "/manifest.webmanifest",
 };
 
 export const viewport: Viewport = {
