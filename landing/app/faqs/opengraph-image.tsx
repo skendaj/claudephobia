@@ -70,6 +70,6 @@ export default function OgImage() {
         </div>
       </div>
     ),
-    { ...size }
+    { ...size, fonts: ogFonts() }
   );
 }

@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { ogFonts } from "@/lib/og-font";
 
 export const runtime = "nodejs";
 export const alt = "Clawdephobia Privacy Policy";
@@ -21,7 +22,7 @@ export default function OgImage() {
           display: "flex",
           flexDirection: "column",
           padding: "72px 80px",
-          fontFamily: "system-ui, -apple-system, sans-serif",
+          fontFamily: "Inter Tight",
           color: "#F0EEE5",
         }}
       >
@@ -79,6 +80,6 @@ export default function OgImage() {
         </div>
       </div>
     ),
-    { ...size }
+    { ...size, fonts: ogFonts() }
   );
 }
