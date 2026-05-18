@@ -30,7 +30,7 @@ export default function OgImage() {
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={src} width={64} height={64} alt="" style={{ borderRadius: 14 }} />
-          <span style={{ fontSize: 28, fontWeight: 600, letterSpacing: -0.5 }}>
+          <span style={{ fontSize: 28, fontWeight: 600, letterSpacing: -0.3 }}>
             Clawdephobia
           </span>
         </div>
@@ -48,7 +48,7 @@ export default function OgImage() {
               display: "flex",
               flexDirection: "column",
               fontSize: 88,
-              fontWeight: 900,
+              fontWeight: 700,
               lineHeight: 1.02,
               letterSpacing: -2.5,
             }}
@@ -60,6 +60,7 @@ export default function OgImage() {
             style={{
               display: "flex",
               fontSize: 30,
+              fontWeight: 600,
               color: "#5A544A",
               letterSpacing: -0.4,
             }}
