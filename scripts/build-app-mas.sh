@@ -33,8 +33,14 @@ else
     echo "Warning: icon.png not found."
 fi
 
-# Copy Info.plist
-cp Resources/Info.plist "${CONTENTS}/Info.plist"
+# Copy Info.plist with MARKETING_VERSION substitution
+VERSION=$(awk '/MARKETING_VERSION:/ {print $2}' project.yml)
+if [ -z "$VERSION" ]; then
+    echo "ERROR: Could not parse MARKETING_VERSION from project.yml"
+    exit 1
+fi
+sed "s/\$(MARKETING_VERSION)/${VERSION}/g" Resources/Info.plist > "${CONTENTS}/Info.plist"
+echo "Info.plist version set to ${VERSION}"
 
 # Copy app icon if it exists
 if [ -f "Resources/AppIcon.icns" ]; then
